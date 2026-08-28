@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ClickWrap.Installer/ClickWrap.Installer.csproj" />
+    <Project Path="src/ClickWrap.Server/ClickWrap.Server.csproj" />
+    <Project Path="src/ClickWrap.UpdateClient/ClickWrap.UpdateClient.csproj" />
+  </Folder>
+</Solution>

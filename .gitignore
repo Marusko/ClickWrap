@@ -1,0 +1,8 @@
+bin/
+obj/
+.vs/
+*.user
+
+# Local server data (app zips) must never be committed
+data/
+out/

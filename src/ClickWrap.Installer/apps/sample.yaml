@@ -1,0 +1,28 @@
+# One file per app. Build that app's installer with:
+#   dotnet publish src/ClickWrap.Installer -p:ClickWrapApp=sample -p:AssemblyName=SampleSetup
+#
+# Exactly one of these is embedded into each exe, so shipping an app means shipping one exe.
+
+appId: sample
+displayName: Sample App
+serverUrl: https://updates.example.com
+
+# The folder the publish output is always extracted into, before setup.exe runs.
+# ClickOnce refuses to update an app from a folder other than the one it was installed from,
+# so once an app has shipped, this must never change. Environment variables expand.
+installFolder: '%LOCALAPPDATA%\ClickWrap\sample'
+
+# What to do if the app is already installed from some other folder:
+#   adopt     - update it where it is (default; no prompts, keeps the app's ClickOnce data)
+#   reinstall - open the ClickOnce uninstall dialog so it can be moved to installFolder
+onExistingInstall: adopt
+
+# Optional. Runs before setup.exe.
+preInstall: []
+#preInstall:
+#  - type: createFolder
+#    path: '%LOCALAPPDATA%\SampleApp\data'
+#  - type: downloadFile
+#    url: https://updates.example.com/extras/seed.db
+#    path: '%LOCALAPPDATA%\SampleApp\data\seed.db'
+#    overwrite: false

@@ -1,0 +1,16 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "clickwrap-server",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "src/ClickWrap.Server/ClickWrap.Server.csproj",
+        "--no-launch-profile"
+      ],
+      "port": 8080
+    }
+  ]
+}

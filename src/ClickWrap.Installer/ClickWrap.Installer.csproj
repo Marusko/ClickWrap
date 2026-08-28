@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>ClickWrap.Installer</RootNamespace>
+
+    <!-- The installer runs before setup.exe, so it cannot assume .NET is on the machine. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <PublishReadyToRun>false</PublishReadyToRun>
+
+    <!-- Publish exactly one file: no .pdb, and no .pdb/.xml dragged in from project references. -->
+    <DebugType>none</DebugType>
+    <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
+
+    <!-- Which apps/<name>.yaml gets baked in. Override per app: -p:ClickWrapApp=race-timer -->
+    <ClickWrapApp Condition="'$(ClickWrapApp)' == ''">sample</ClickWrapApp>
+
+    <!--
+      Named exe per app. Set via InstallerAssemblyName, never -p:AssemblyName: a global
+      AssemblyName would also rename the referenced UpdateClient project and break restore.
+    -->
+    <InstallerAssemblyName Condition="'$(InstallerAssemblyName)' == ''">$(ClickWrapApp)Setup</InstallerAssemblyName>
+    <AssemblyName>$(InstallerAssemblyName)</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+    <ProjectReference Include="..\ClickWrap.UpdateClient\ClickWrap.UpdateClient.csproj" />
+  </ItemGroup>
+
+  <!-- Always embedded under the same logical name, so the code never varies per app. -->
+  <ItemGroup>
+    <EmbeddedResource Include="apps\$(ClickWrapApp).yaml" LogicalName="install.yaml" />
+  </ItemGroup>
+
+  <Target Name="VerifyClickWrapAppExists" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('apps\$(ClickWrapApp).yaml')"
+           Text="No config at apps\$(ClickWrapApp).yaml. Create it, or pass -p:ClickWrapApp=&lt;name&gt; for an existing file." />
+  </Target>
+
+</Project>
