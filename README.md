@@ -9,8 +9,16 @@ remains ClickOnce's job, in Add/Remove Programs.
 
 ```
 src/ClickWrap.Server/         Blazor Server admin page + two API endpoints, files on disk
-src/ClickWrap.UpdateClient/   one assembly: HTTP call + version compare, no UI
+src/ClickWrap.UpdateClient/   one assembly: version check + hand-off to the installer, no UI
 src/ClickWrap.Installer/      WPF exe, one self-contained build per app
+```
+
+From an app's point of view the whole thing is two calls:
+
+```csharp
+var update = await client.CheckForUpdateAsync("race-timer");   // version worked out for you
+if (update is not null && userSaidYes)
+    InstalledApp.UpdateAndExit("race-timer");                  // updates and closes the app
 ```
 
 ## Docs

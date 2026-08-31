@@ -92,25 +92,27 @@ HKCU\Software\ClickWrap\{appId}
 ```
 
 The registry pointer exists because the app runs from the ClickOnce store, not the install
-folder, and under `adopt` the install folder is not necessarily the one in `install.yaml`. So an
-app can relaunch its own updater without containing any install logic:
+folder, and under `adopt` the install folder is not necessarily the one in `install.yaml`.
+
+Apps do not read this key themselves — `ClickWrap.UpdateClient` wraps it, so the whole
+self-update is one call:
 
 ```csharp
-var updater = Registry.GetValue($@"HKEY_CURRENT_USER\Software\ClickWrap\{appId}", "Updater", null) as string;
-
-if (updater is not null && File.Exists(updater))
-{
-    Process.Start(new ProcessStartInfo(updater) { UseShellExecute = true });
-    Application.Current.Shutdown();
-}
+InstalledApp.UpdateAndExit("race-timer");   // starts update.exe, exits the app
 ```
 
-**The app must shut down.** `setup.exe` always launches the app after updating, so an app that
-stays open ends up running beside a second, newer copy of itself
-([clickonce.md](clickonce.md#an-update-applies-while-the-app-is-running)).
+It returns `false` rather than exiting when there is no updater, so a missing one cannot strand
+the user in a closed app. See [client.md](client.md#applying-the-update) for the full API,
+including `StartUpdater` for apps that need to save state before closing.
 
-`Version` is written only after `setup.exe` succeeds, so it reflects a completed install — which
-also makes it a convenient way for an app to know its installed version.
+**The app must exit.** `setup.exe` always launches the app after updating, so one that stays open
+ends up running beside a second, newer copy of itself
+([clickonce.md](clickonce.md#an-update-applies-while-the-app-is-running)). Doing the exit inside
+`UpdateAndExit` is what stops that being every app author's problem.
+
+`Version` is written only after `setup.exe` succeeds, so it reflects a completed install. It is
+also what `InstalledApp.GetCurrentVersion` compares against the server, which is more reliable
+than an assembly version that can drift from the published `ApplicationVersion`.
 
 `update.exe` sits in the folder the installer wipes on every run, and Windows locks a running
 exe. The wipe deliberately skips the running executable; without that, an app-initiated update

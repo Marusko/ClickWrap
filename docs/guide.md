@@ -103,18 +103,27 @@ Reference `ClickWrap.UpdateClient`, then at startup:
 
 ```csharp
 var client = new UpdateClient("https://updates.example.com");
-var current = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.0.0.0";
 
 try
 {
-    var update = await client.CheckForUpdateAsync("race-timer", current);
+    var update = await client.CheckForUpdateAsync("race-timer");
     if (update is not null) ShowUpdateBanner(update);
 }
 catch (HttpRequestException) { /* offline; ignore */ }
 ```
 
-To make the banner's button actually update, see
-[installer.md](installer.md#self-update).
+And behind the banner's button:
+
+```csharp
+if (!InstalledApp.UpdateAndExit("race-timer"))
+{
+    ShowMessage("Could not find the updater. Reinstall from the download link.");
+}
+```
+
+You do not work out the running version and you do not shut the app down yourself — both are
+handled, and both are easy to get wrong. See [client.md](client.md) for why, and for
+`StartUpdater` if the app must save state before closing.
 
 ## Ship a new version of an existing app
 

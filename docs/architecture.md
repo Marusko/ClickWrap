@@ -30,26 +30,29 @@ small pieces you control. Nothing here replaces ClickOnce; it feeds it.
 | Project | What it is | Target |
 | --- | --- | --- |
 | `ClickWrap.Server` | Blazor Server admin page + two API endpoints. Files on disk, no database. | `net10.0` |
-| `ClickWrap.UpdateClient` | One assembly, no dependencies. HTTP call + version compare. | `net10.0` |
+| `ClickWrap.UpdateClient` | One assembly, no dependencies. Version check, plus the hand-off to the installer. | `net10.0-windows` |
 | `ClickWrap.Installer` | WPF exe, self-contained, one build per app with its YAML embedded. | `net10.0-windows` |
 
 ## The split, and why it is worth keeping
 
-Apps **check**. The installer **applies**.
+Apps **check and hand off**. The installer **applies**.
 
-`ClickWrap.UpdateClient` contains no download, extract, registry or process-launch code. An app
-that references it can learn a newer version exists and nothing more. All the install machinery
-lives in one exe instead of being duplicated into every app you ship.
+`ClickWrap.UpdateClient` contains no download, extraction, or folder-writing code. It reads a
+registry key to learn the app's version and where its `update.exe` is, and can start that
+process. Everything that actually installs anything lives in the installer exe rather than being
+duplicated into every app you ship.
 
-This mirrors the separate `store` repo (Private App Store), which enforces the same rule through
-project structure (`UpdateCheck.Wpf` → `UpdateCheck.Core`, neither containing an install API).
-Keeping ClickWrap on the same rule means the two systems behave the same way from an app
-author's point of view.
+That boundary is what makes `InstalledApp.UpdateAndExit(appId)` a safe one-liner: the app is
+starting a program, not performing an install.
 
-The library is deliberately `net10.0` rather than `net10.0-windows`. Adding self-update to it
-would require the registry and process APIs, making it Windows-only and pulling install
-machinery into every consumer. When an app wants a one-click update, it launches the installer
-instead — see "Self-update" in [installer.md](installer.md).
+This is a slightly softer line than the separate `store` repo (Private App Store), which enforces
+"applications never launch anything" through project structure (`UpdateCheck.Wpf` →
+`UpdateCheck.Core`, neither containing an install API). ClickWrap allows the hand-off because
+there is no always-present store app to route users to — the updater *is* the app's own
+installer, sitting next to it. The install logic still lives in exactly one place.
+
+The library targets `net10.0-windows` because the registry read requires it. Nothing is lost:
+ClickOnce is Windows-only, so a portable build had nothing to be portable for.
 
 ## Data flow, end to end
 

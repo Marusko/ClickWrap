@@ -1,62 +1,63 @@
 # Update-check library
 
-`ClickWrap.UpdateClient` — one project, one assembly, no package dependencies, `net10.0`.
+`ClickWrap.UpdateClient` — one project, one assembly, no package dependencies,
+`net10.0-windows`.
 
-It makes an HTTP call and compares two version numbers. It has no UI, does not download
-anything, and cannot install anything. How to tell the user about an update is each app's
-decision. See [architecture.md](architecture.md) for why that boundary is deliberate.
+It checks whether the server has a newer version, and can hand off to the app's installer to
+apply it. It has no UI: how to tell the user about an update is each app's decision.
 
-## Usage
+## The short version
 
 ```csharp
 using ClickWrap;
 
 var client = new UpdateClient("https://updates.example.com");
-var update = await client.CheckForUpdateAsync("race-timer", "3.3.0.1");
 
-if (update is not null)
+var update = await client.CheckForUpdateAsync("race-timer");   // version worked out for you
+if (update is not null && UserAgreedToUpdate(update))
 {
-    // update.LatestVersion, update.DownloadUrl, update.ReleaseNotes
+    InstalledApp.UpdateAndExit("race-timer");                  // launches update.exe, exits the app
 }
 ```
 
-Pass your own `HttpClient` when you have a pooled or pre-configured one:
+Two calls, and neither needs the running version or a shutdown of your own.
+
+## UpdateClient
+
+| Member | Behaviour |
+| --- | --- |
+| `CheckForUpdateAsync(appId, ct)` | Uses `InstalledApp.GetCurrentVersion(appId)` as the running version. |
+| `CheckForUpdateAsync(appId, currentVersion, ct)` | Compares against a version you supply. |
+| `GetLatestAsync(appId, ct)` | Newest published version regardless of what is running. Used by the installer. |
+| `ServerBaseUrl` | The base URL, trailing slash trimmed. |
+
+Both check overloads return `UpdateInfo` (`LatestVersion`, `DownloadUrl`, `ReleaseNotes`) when
+something newer exists, and `null` otherwise.
+
+Pass your own `HttpClient` when you have a pooled one — only the single-argument constructor
+creates and disposes one:
 
 ```csharp
 var client = new UpdateClient(httpClientFactory.CreateClient(), "https://updates.example.com");
 ```
 
-Only the parameterless-`HttpClient` constructor creates and owns one; the overload above leaves
-disposal to you.
-
-## API
-
-| Member | Behaviour |
-| --- | --- |
-| `CheckForUpdateAsync(appId, currentVersion, ct)` | `UpdateInfo` when the server has something newer, otherwise `null`. |
-| `GetLatestAsync(appId, ct)` | The newest published version regardless of what is running, or `null` if the app has none. Used by the installer. |
-| `ServerBaseUrl` | The base URL, trailing slash trimmed. |
-
-`UpdateInfo` carries `LatestVersion`, `DownloadUrl` and `ReleaseNotes`.
-
-## What it returns and throws
+### What it returns and throws
 
 | Situation | Result |
 | --- | --- |
 | Server has a newer version | `UpdateInfo` |
-| Running version equals latest | `null` |
-| Running version is newer than the server's | `null` |
+| Running version equals, or is newer than, latest | `null` |
 | App id has no published versions (`404`) | `null` |
 | `currentVersion` is not a version number | `ArgumentException` |
 | Server unreachable, or any non-404 error status | `HttpRequestException` |
 
-A `404` returns `null` rather than throwing, so a typo'd app id cannot crash an app's startup
-check. Network failures **do** throw, so wrap the call if you run it during startup:
+A `404` returns `null` rather than throwing, so a typo'd app id cannot crash a startup check.
+Network failures **do** throw, so wrap the call when it runs at startup:
 
 ```csharp
 try
 {
-    var update = await client.CheckForUpdateAsync(AppId, CurrentVersion);
+    var update = await client.CheckForUpdateAsync(AppId);
     if (update is not null) ShowUpdateBanner(update);
 }
 catch (HttpRequestException)
@@ -65,23 +66,74 @@ catch (HttpRequestException)
 }
 ```
 
-## Version comparison
+## InstalledApp
 
-Versions are normalised to four components before comparing. `System.Version` treats `1.2.3` and
-`1.2.3.0` as different — `Revision` is `-1` versus `0` — so an app reporting three components
-would otherwise look permanently out of date. `"2.5"` and `"2.5.0.0"` compare equal here.
+Reads what the installer recorded under `HKCU\Software\ClickWrap\{appId}`, and hands off to the
+app's updater.
 
-Get the running version from the assembly:
+| Member | Behaviour |
+| --- | --- |
+| `GetCurrentVersion(appId)` | The version to compare against the server. See below. |
+| `GetInstalledVersion(appId)` | What the installer last installed, or `null` if this app was not installed by it. |
+| `GetInstallFolder(appId)` | Folder the publish output was extracted into, or `null`. |
+| `GetUpdaterPath(appId)` | Path to `update.exe`, or `null` if not recorded or no longer on disk. |
+| `StartUpdater(appId)` | Launches the updater and leaves the app running. `false` if there is none. |
+| `UpdateAndExit(appId, exitCode)` | Launches the updater and exits the app. `false` if there is none. |
+| `KeyPathFor(appId)`, `*ValueName` consts | The registry contract, shared with the installer. |
+
+### How the current version is worked out
+
+`GetCurrentVersion` prefers the version the installer recorded, and falls back to the entry
+assembly's version.
+
+The recorded value is preferred because it is the version actually pulled from the server. A
+ClickOnce `ApplicationVersion` and an `AssemblyVersion` drift apart the moment one is bumped
+without the other — and Visual Studio auto-increments the ClickOnce revision on publish, so this
+is easy to do by accident. An app comparing a stale `AssemblyVersion` against the server would be
+permanently convinced an update is available.
+
+The assembly fallback covers a build that was never installed through ClickWrap, such as one
+running from your dev machine.
+
+### Applying the update
+
+`UpdateAndExit` is the whole self-update in one call: it starts `update.exe` and ends the process.
+
+**It returns `false` instead of exiting when there is no updater** — an app that was never
+installed by ClickWrap, or whose install folder has been removed. The app keeps running, so a
+missing updater can never strand a user in a closed app:
 
 ```csharp
-var current = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0.0.0.0";
+if (!InstalledApp.UpdateAndExit(AppId))
+{
+    ShowMessage("Could not find the updater. Reinstall from the download link.");
+}
 ```
 
-Whatever you use must match the `ApplicationVersion` you publish with, since that is what gets
-uploaded as the version folder name.
+On success it does not return.
 
-## Triggering the update from the app
+The app **must** exit: `setup.exe` launches the app once it has updated it, so an app that stays
+open ends up running beside a second, newer copy of itself
+([clickonce.md](clickonce.md#an-update-applies-while-the-app-is-running)). That is the mistake
+`UpdateAndExit` exists to prevent.
 
-The library will not do this for you, but an app can hand off to its installer in a few lines.
-That path, and why the app must shut itself down, is documented in
-[installer.md](installer.md#self-update).
+It exits the process directly, so unsaved state is not flushed and WPF's shutdown does not run.
+When that matters, save first and use `StartUpdater`:
+
+```csharp
+if (InstalledApp.StartUpdater(AppId))
+{
+    SaveEverything();
+    Application.Current.Shutdown();   // must still close
+}
+```
+
+## Why this library is Windows-only
+
+It targets `net10.0-windows` because reading the registration needs the registry. That is not a
+real restriction: the whole system is built on ClickOnce, which is Windows-only, so a portable
+build had nothing to be portable for.
+
+The library still contains no install machinery — no download, no extraction, no folder writes.
+It reads a registry key and starts a process. Everything that actually installs anything lives in
+the installer exe. See [architecture.md](architecture.md).
