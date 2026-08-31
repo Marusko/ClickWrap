@@ -47,6 +47,10 @@ foreach ($config in $configs) {
     $outDir = Join-Path $outRoot $appId
     Write-Host "Publishing $appId -> $assemblyName.exe" -ForegroundColor Cyan
 
+    # dotnet publish does not clear its output folder, so a renamed exe or files from an
+    # older csproj (.pdb, .xml) would linger and get shipped alongside the real one.
+    if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
+
     dotnet publish $project `
         -c Release `
         -p:ClickWrapApp=$appId `
@@ -55,6 +59,12 @@ foreach ($config in $configs) {
     if ($LASTEXITCODE -ne 0) { throw "Publish failed for $appId" }
 
     $exe = Join-Path $outDir "$assemblyName.exe"
+    if (-not (Test-Path $exe)) { throw "Publish reported success but $exe is missing." }
+
     $sizeMb = [math]::Round((Get-Item $exe).Length / 1MB, 1)
+    $extra = @(Get-ChildItem $outDir -File | Where-Object { $_.Name -ne "$assemblyName.exe" })
     Write-Host "  $exe ($sizeMb MB)" -ForegroundColor Green
+    if ($extra) {
+        Write-Warning "  Also produced: $($extra.Name -join ', ') - distribution should be one file."
+    }
 }
