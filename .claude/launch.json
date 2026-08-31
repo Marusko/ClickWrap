@@ -8,9 +8,12 @@
         "run",
         "--project",
         "src/ClickWrap.Server/ClickWrap.Server.csproj",
-        "--no-launch-profile"
+        "--no-launch-profile",
+        "--",
+        "--urls",
+        "http://0.0.0.0:8090"
       ],
-      "port": 8080
+      "port": 8090
     }
   ]
 }

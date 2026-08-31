@@ -26,7 +26,12 @@ dotnet run --project src/ClickWrap.Server
 <http://localhost:8080> lists apps, `/admin` uploads a version. Data lands under
 `src/ClickWrap.Server/bin/Debug/net10.0/data`; set `CLICKWRAP_DATA` to put it elsewhere.
 
-There is also `.claude/launch.json`, so the dev server can be started by name from tooling.
+`.claude/launch.json` starts the same server on **8090** instead, because `RaceView.Web.exe`
+holds 8080 on this machine. Either port is fine — 8080 is only the default the container binds:
+
+```bash
+dotnet run --project src/ClickWrap.Server -- --urls http://0.0.0.0:8090
+```
 
 ## Ship a new app, start to finish
 

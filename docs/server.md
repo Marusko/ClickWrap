@@ -67,8 +67,13 @@ before touching the disk.
 
 ## `/admin`
 
-One page: pick an existing app or type a new id, enter a version, optional release notes, choose
-the zip, upload.
+One page, built with [MudBlazor](https://mudblazor.com): pick an existing app or type a new id,
+enter a version, optional release notes, choose the zip, upload. Success shows a snackbar;
+validation failures show inline.
+
+The MudBlazor theme lives in `Components/ClickWrapTheme.cs` and is built from the same palette as
+the installer and the store launcher (accent `#2563EB`, surface `#FFFFFF`, background `#F3F4F6`),
+so the admin UI reads as part of the same family of tools.
 
 There is **no app-level auth by design** — this is expected to sit behind a Cloudflare Tunnel
 with Cloudflare Access in front of `/admin`. Do not expose it directly.
@@ -91,14 +96,43 @@ extracts, so a wrongly-shaped zip would otherwise produce a broken install on ev
 
 ## Configuration
 
-All from environment variables, so it drops into a container with no `appsettings.json`.
+All from environment variables, so it drops into a container with no `appsettings.json`. These
+are every variable the app itself reads — the names are declared once as constants on
+`ServerOptions`.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `ASPNETCORE_URLS` | `http://0.0.0.0:8080` | Binds all interfaces — it is reached through the tunnel, not loopback. |
-| `CLICKWRAP_DATA` | `/data` on Linux, `./data` on Windows | Root of the app/version tree. |
-| `CLICKWRAP_PUBLIC_BASE_URL` | *(forwarded headers)* | Public origin, e.g. `https://updates.example.com`. |
-| `CLICKWRAP_MAX_UPLOAD_MB` | `512` | Upload size cap. |
+| `CLICKWRAP_DATA` | `/data` on Linux, `<app>/data` on Windows | Root of the app/version tree. The only state; put it on a volume. |
+| `CLICKWRAP_PUBLIC_BASE_URL` | *(forwarded headers)* | Public origin, e.g. `https://updates.example.com`. Used to build `downloadUrl`. |
+| `CLICKWRAP_MAX_UPLOAD_MB` | `512` | Upload size cap, in megabytes. Values that are not a positive integer fall back to the default. |
+| `ASPNETCORE_URLS` | `http://0.0.0.0:8080` | Addresses to bind. All interfaces, since it is reached through the tunnel, not loopback. |
+
+Standard ASP.NET Core variables still work — `ASPNETCORE_ENVIRONMENT`,
+`Logging__LogLevel__Default` and the rest — but nothing in ClickWrap requires them.
+
+Every one of these can also be passed as a command-line argument, which is handy in development:
+
+```bash
+dotnet run --project src/ClickWrap.Server -- --CLICKWRAP_DATA /tmp/clickwrap --urls http://0.0.0.0:8090
+```
+
+### Startup output
+
+The server prints what it resolved, so a misconfigured deployment is obvious in the logs:
+
+```
+--------------------- ClickWrap server starting v1.0.0 ---------------------
+Current user: Spravca
+Working directory: /app
+Listening on: http://0.0.0.0:8080
+Public base URL: https://updates.example.com
+Data path: /data
+Max upload: 512 MB
+Apps published: 2 (7 versions)
+```
+
+With `CLICKWRAP_PUBLIC_BASE_URL` unset, that line says so and names the variable, because it is
+the one setting that silently produces unreachable download URLs behind a tunnel.
 
 **Set `CLICKWRAP_PUBLIC_BASE_URL` in production.** Without it the `downloadUrl` in `/latest` is
 built from the inbound request host, which behind a tunnel is the tunnel's host, not yours —
