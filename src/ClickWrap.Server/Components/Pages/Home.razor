@@ -4,31 +4,55 @@
 
 <PageTitle>ClickWrap</PageTitle>
 
-<h1>ClickWrap</h1>
-<p class="text-secondary">Hosts zipped ClickOnce publish output for the installer to download.</p>
+<MudText Typo="Typo.h4" GutterBottom="true">Apps</MudText>
+<MudText Typo="Typo.body2" Class="mb-6 mud-text-secondary">
+    Zipped ClickOnce publish output, served to the installer.
+</MudText>
 
-<h2 class="h5">Apps</h2>
 @if (_apps.Count == 0)
 {
-    <p class="text-secondary">Nothing published yet. Go to <a href="admin">Publish</a> to upload a version.</p>
+    <MudPaper Class="pa-8 d-flex flex-column align-center" Elevation="0" Outlined="true">
+        <MudIcon Icon="@Icons.Material.Outlined.Inventory2" Size="Size.Large" Class="mud-text-secondary mb-3" />
+        <MudText Typo="Typo.body1" Class="mb-4">Nothing published yet.</MudText>
+        <MudButton Href="admin" Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Outlined.CloudUpload">
+            Publish a version
+        </MudButton>
+    </MudPaper>
 }
 else
 {
-    <table class="table table-sm">
-        <thead>
-            <tr><th>App id</th><th>Latest</th><th>Versions</th></tr>
-        </thead>
-        <tbody>
-            @foreach (var app in _apps)
-            {
-                <tr>
-                    <td><code>@app.AppId</code></td>
-                    <td>@(app.Latest?.Version ?? "—")</td>
-                    <td>@app.Count</td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <MudPaper Elevation="0" Outlined="true">
+        <MudTable Items="_apps" Hover="true" Elevation="0" Breakpoint="Breakpoint.Sm">
+            <HeaderContent>
+                <MudTh>App id</MudTh>
+                <MudTh>Latest</MudTh>
+                <MudTh>Published</MudTh>
+                <MudTh Style="text-align:right">Versions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="App id"><code>@context.AppId</code></MudTd>
+                <MudTd DataLabel="Latest">
+                    @if (context.Latest is null)
+                    {
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">—</MudText>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Text">
+                            @context.Latest.Version
+                        </MudChip>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Published">
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        @(context.Latest?.Metadata.UploadedUtc.UtcDateTime.ToString("yyyy-MM-dd HH:mm") ?? "—")
+                    </MudText>
+                </MudTd>
+                <MudTd DataLabel="Versions" Style="text-align:right">@context.Count</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
 }
 
 @code {

@@ -1,20 +1,23 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<MudThemeProvider Theme="ClickWrapTheme.Instance" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+<MudLayout>
+    <MudAppBar Elevation="0" Color="Color.Surface" Class="border-b">
+        <MudText Typo="Typo.h6" Class="mr-8">ClickWrap</MudText>
+        <MudButton Href="/" StartIcon="@Icons.Material.Outlined.Apps" Color="Color.Inherit" Class="mr-2">Apps</MudButton>
+        <MudButton Href="/admin" StartIcon="@Icons.Material.Outlined.CloudUpload" Color="Color.Inherit">Publish</MudButton>
+    </MudAppBar>
 
-        <article class="content px-4">
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="mt-8 mb-8">
             @Body
-        </article>
-    </main>
-</div>
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
