@@ -6,9 +6,6 @@ using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Lets the app run from the build output (not just `dotnet publish` output) outside Development.
-builder.WebHost.UseStaticWebAssets();
-
 var options = ServerOptions.FromConfiguration(builder.Configuration);
 builder.Services.AddSingleton(options);
 builder.Services.AddSingleton<AppStore>();
