@@ -16,7 +16,7 @@ namespace ClickWrap.Installer;
 public static class UpdaterRegistration
 {
     /// <summary>Root key holding one subkey per installed app.</summary>
-    public const string RootKeyPath = @"Software\ClickWrap";
+    private const string RootKeyPath = InstalledApp.RootKeyPath;
 
     /// <param name="managed">
     /// True when this installer created the folder, false when it adopted a pre-existing install
@@ -37,11 +37,11 @@ public static class UpdaterRegistration
                 return;
             }
 
-            key.SetValue("InstallFolder", installFolder);
-            key.SetValue("Updater", Path.Combine(installFolder, InstallRunner.UpdaterFileName));
-            key.SetValue("Version", version);
-            key.SetValue("DeploymentName", deploymentName);
-            key.SetValue("Managed", managed ? 1 : 0, RegistryValueKind.DWord);
+            key.SetValue(InstalledApp.InstallFolderValueName, installFolder);
+            key.SetValue(InstalledApp.UpdaterValueName, Path.Combine(installFolder, InstallRunner.UpdaterFileName));
+            key.SetValue(InstalledApp.VersionValueName, version);
+            key.SetValue(InstalledApp.DeploymentNameValueName, deploymentName);
+            key.SetValue(InstalledApp.ManagedValueName, managed ? 1 : 0, RegistryValueKind.DWord);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
         {
@@ -100,15 +100,15 @@ public static class UpdaterRegistration
         managed = false;
 
         using var key = root.OpenSubKey(appId);
-        if (key?.GetValue("DeploymentName") is not string deploymentName || deploymentName.Length == 0)
+        if (key?.GetValue(InstalledApp.DeploymentNameValueName) is not string deploymentName || deploymentName.Length == 0)
         {
             // Written by an older installer that did not record this; leave it alone rather than
             // guess, since the folder cannot be verified as ours.
             return false;
         }
 
-        installFolder = key.GetValue("InstallFolder") as string;
-        managed = key.GetValue("Managed") is int flag && flag == 1;
+        installFolder = key.GetValue(InstalledApp.InstallFolderValueName) as string;
+        managed = key.GetValue(InstalledApp.ManagedValueName) is int flag && flag == 1;
 
         // Still in Add/Remove Programs means still installed.
         return ClickOnceRegistry.Find(deploymentName) is null;

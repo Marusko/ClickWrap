@@ -39,6 +39,19 @@ public sealed class UpdateClient : IDisposable
     public string ServerBaseUrl { get; }
 
     /// <summary>
+    /// Checks for an update using the version this app was installed at, so callers do not have to
+    /// work out their own version. See <see cref="InstalledApp.GetCurrentVersion" />.
+    /// </summary>
+    /// <param name="appId">App id as published on the server, e.g. "race-timer".</param>
+    /// <param name="cancellationToken">Cancels the HTTP call.</param>
+    /// <exception cref="HttpRequestException">The server could not be reached or returned an error.</exception>
+    public Task<UpdateInfo?> CheckForUpdateAsync(string appId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(appId);
+        return CheckForUpdateAsync(appId, InstalledApp.GetCurrentVersion(appId), cancellationToken);
+    }
+
+    /// <summary>
     /// Returns <c>null</c> when the app is already up to date, or when the server has no
     /// versions for this app id. Returns an <see cref="UpdateInfo"/> when a newer version exists.
     /// </summary>

@@ -1,9 +1,9 @@
 namespace ClickWrap;
 
 /// <summary>
-/// A version published on the server. <see cref="UpdateClient.CheckForUpdateAsync"/> returns one
-/// only when it is newer than what is running; <see cref="UpdateClient.GetLatestAsync"/> returns
-/// the newest one regardless.
+/// A version published on the server. <see cref="UpdateClient.CheckForUpdateAsync(string, string, CancellationToken)"/>
+/// returns one only when it is newer than what is running; <see cref="UpdateClient.GetLatestAsync"/>
+/// returns the newest one regardless.
 /// </summary>
 public sealed record UpdateInfo
 {

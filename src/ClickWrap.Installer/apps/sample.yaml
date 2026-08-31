@@ -1,5 +1,9 @@
 # One file per app. Build that app's installer with:
-#   dotnet publish src/ClickWrap.Installer -p:ClickWrapApp=sample -p:AssemblyName=SampleSetup
+#   pwsh ./build/publish-installers.ps1 -App sample
+#
+# Or directly. Note InstallerAssemblyName, not AssemblyName: the latter is a global MSBuild
+# property and would also rename the referenced UpdateClient project, breaking restore.
+#   dotnet publish src/ClickWrap.Installer -p:ClickWrapApp=sample -p:InstallerAssemblyName=SampleSetup
 #
 # Exactly one of these is embedded into each exe, so shipping an app means shipping one exe.
 
