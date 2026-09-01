@@ -1,6 +1,7 @@
 using ClickWrap.Server.Api;
 using ClickWrap.Server.Components;
 using ClickWrap.Server.Storage;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using MudBlazor.Services;
@@ -27,6 +28,13 @@ builder.Services.Configure<ForwardedHeadersOptions>(forwarded =>
     forwarded.KnownIPNetworks.Clear();
     forwarded.KnownProxies.Clear();
 });
+
+// Data Protection keys otherwise land in the container filesystem and are lost on every redeploy.
+// Keeping them on the data volume also means a second replica would agree with the first.
+// The leading dot keeps the folder out of the app listing: AppStore ids must start alphanumeric.
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(Directory.CreateDirectory(Path.Combine(options.DataPath, ".dataprotection-keys")))
+    .SetApplicationName("ClickWrap");
 
 // The data folder is the only thing this server needs to work, and an unmounted volume is the
 // failure it cannot recover from on its own -- so that is what /health actually checks.

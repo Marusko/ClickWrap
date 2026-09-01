@@ -182,6 +182,19 @@ TLS is terminated by Cloudflare, so there is no HTTPS redirection and no HSTS. `
 headers are trusted from any proxy because `cloudflared` connects from inside the container
 network and so is never in a known-proxy range.
 
+### Data Protection keys
+
+Keys are persisted to `$CLICKWRAP_DATA/.dataprotection-keys` rather than the container
+filesystem, so they survive a redeploy and would be shared by a second replica. The leading dot
+keeps the folder invisible to the app listing — app ids must start with an alphanumeric
+character, so it can never be mistaken for an app or reached through the API.
+
+The remaining startup warning, *"No XML encryptor configured"*, is expected on Linux: there is no
+DPAPI, and encrypting the key ring would mean managing a certificate. It is acceptable here
+because the keys protect nothing sensitive — authentication is Cloudflare Access's job at the
+edge, and this app has no login, cookies or sessions of its own. Silencing it would mean adding
+certificate management for no security gain.
+
 ## Running it locally
 
 ```bash
