@@ -2,6 +2,7 @@ using ClickWrap.Server.Api;
 using ClickWrap.Server.Components;
 using ClickWrap.Server.Storage;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,6 +27,16 @@ builder.Services.Configure<ForwardedHeadersOptions>(forwarded =>
     forwarded.KnownIPNetworks.Clear();
     forwarded.KnownProxies.Clear();
 });
+
+// The data folder is the only thing this server needs to work, and an unmounted volume is the
+// failure it cannot recover from on its own -- so that is what /health actually checks.
+builder.Services.AddHealthChecks()
+    .AddCheck(
+        "data-path",
+        () => Directory.Exists(options.DataPath)
+            ? HealthCheckResult.Healthy($"Data path available at {options.DataPath}.")
+            : HealthCheckResult.Unhealthy($"Data path {options.DataPath} is missing."),
+        tags: ["ready"]);
 
 builder.Services.AddMudServices();
 
@@ -53,6 +64,9 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.MapUpdateApi();
+
+// Plain text "Healthy" / "Unhealthy" with 200 / 503, which is all a container healthcheck needs.
+app.MapHealthChecks("/health");
 
 // Printed once the addresses are actually bound, so "Listening on" is the real thing.
 app.Lifetime.ApplicationStarted.Register(() =>

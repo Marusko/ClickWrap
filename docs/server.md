@@ -59,6 +59,23 @@ or that have no `app.zip`, are skipped. A version folder dropped in by hand work
 Streams `app.zip` as `application/zip` with range requests enabled, so a large download can
 resume rather than restart.
 
+### `GET /health`
+
+Plain text `Healthy` with `200`, or `Unhealthy` with `503` — which is all a container healthcheck
+needs. It checks that the data folder is present, since an unmounted volume is the one failure
+the server cannot recover from on its own and cannot otherwise detect. The rest of the app being
+up is implied by the endpoint answering at all.
+
+The image installs `curl` for this; wire it up from compose, for example:
+
+```yaml
+healthcheck:
+  test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+  interval: 30s
+  timeout: 3s
+  retries: 3
+```
+
 ### Path safety
 
 `appId` and `version` become path segments, so they are whitelisted against

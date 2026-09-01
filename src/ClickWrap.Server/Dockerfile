@@ -26,14 +26,18 @@ RUN dotnet build "./ClickWrap.Server.csproj" -c $BUILD_CONFIGURATION -o /app/bui
 # This stage is used to publish the service project to be copied to the final stage
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./ClickWrap.Server.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+# Same version as the image label below, so the startup banner and the label cannot disagree.
+ARG APP_VERSION=1.0.0
+RUN dotnet publish "./ClickWrap.Server.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false /p:Version=$APP_VERSION
 
 # This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)
 FROM base AS final
 
+# Build with: docker build --build-arg APP_VERSION=1.2.3 -t clickwrap:1.2.3 .
+ARG APP_VERSION=1.0.0
 LABEL org.opencontainers.image.title="ClickWrap Server" \
       org.opencontainers.image.description="ClickWrap web app and API service" \
-      org.opencontainers.image.version="1.0.0"
+      org.opencontainers.image.version="${APP_VERSION}"
 ENV CLICKWRAP_DATA=/data \
     CLICKWRAP_MAX_UPLOAD_MB=512 \
     CLICKWRAP_PUBLIC_BASE_URL=https://clickwrap.public.domain

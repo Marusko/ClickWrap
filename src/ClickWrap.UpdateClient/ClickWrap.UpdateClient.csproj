@@ -9,4 +9,27 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
+  <PropertyGroup Label="Packing">
+    <!-- The only project in the solution that ships as a package. -->
+    <IsPackable>true</IsPackable>
+    <PackageId>ClickWrap.UpdateClient</PackageId>
+    <Title>ClickWrap update client</Title>
+    <Description>
+      Asks a ClickWrap server whether a newer version of a ClickOnce app has been published, and
+      hands off to that app's installer to apply it. No UI, and no install machinery of its own.
+    </Description>
+    <PackageTags>clickonce;update;updater;installer;wpf;windows;desktop</PackageTags>
+    <PackageProjectUrl>https://github.com/Marusko/ClickWrap</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>See the CHANGELOG and docs at the project URL.</PackageReleaseNotes>
+    <!-- Ships the XML docs so consumers get IntelliSense on the public API. -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
 </Project>

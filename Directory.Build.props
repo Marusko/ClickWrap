@@ -1,0 +1,26 @@
+<Project>
+
+  <PropertyGroup Label="Identity">
+    <!--
+      One version for all three pieces, so a running container, a NuGet package and a
+      distributed installer exe can be traced back to the same build. The server prints it at
+      startup (ServerOptions.Version) and the installer exe carries it in its file properties.
+
+      No TargetFramework here on purpose: this file is imported before each project's own
+      PropertyGroup, so a value set here would win over the project's own declaration.
+    -->
+    <Version>1.0.0</Version>
+    <Product>ClickWrap</Product>
+    <Authors>Matúš Suský</Authors>
+    <Company>Matúš Suský</Company>
+    <Copyright>Copyright (c) 2026 Matúš Suský</Copyright>
+    <RepositoryUrl>https://github.com/Marusko/ClickWrap</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Packing">
+    <!-- Only the client library ships as a package; it opts back in. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>

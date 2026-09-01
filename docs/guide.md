@@ -158,12 +158,21 @@ automated and it discards the app's ClickOnce data.
 Bind `0.0.0.0` (the default), put it behind a Cloudflare Tunnel, and let Cloudflare Access
 protect `/admin`. There is no app-level auth by design.
 
+The Dockerfile lives in `src/ClickWrap.Server/`, with that folder as the build context. Stamp the
+version into both the image label and the binary from one argument:
+
+```bash
+docker build --build-arg APP_VERSION=1.2.3 -t clickwrap:1.2.3 src/ClickWrap.Server
+```
+
 Set at minimum:
 
 ```
 CLICKWRAP_DATA=/data
 CLICKWRAP_PUBLIC_BASE_URL=https://updates.example.com
 ```
+
+Point the compose healthcheck at `/health` — see [server.md](server.md#get-health).
 
 Persist `/data` on a volume — it is the only state. `CLICKWRAP_PUBLIC_BASE_URL` is not optional
 in production: without it, download URLs are built from the tunnel's hostname and installers
