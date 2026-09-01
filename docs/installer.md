@@ -193,3 +193,13 @@ of tools. Nothing links the repositories — **keep them in sync by hand.**
 The window follows the store's `ThemedDialog` shape: chromeless rounded surface, drop shadow,
 and an icon badge that reflects the outcome — accent while working, green on success, amber when
 paused for the user, red on failure.
+
+`appicon.ico` is set as `<ApplicationIcon>`, so it is embedded in the exe itself and travels with
+the single distributed file — and with the `update.exe` copied beside the installed app. It is
+also included as a WPF `Resource` and set as the window `Icon`, which is what the taskbar shows.
+
+The icon contains only 24x24 and 16x16 frames, so Windows upscales it for the 32px and 48px
+views used in Explorer and on the desktop, and it looks slightly soft there. **Leave it that
+way.** The icon is licensed from Axialis Software, whose terms forbid distributing a modified
+version — and re-rendering it at larger sizes to bake into the exe would be exactly that. See
+the credits in the [README](../README.md).

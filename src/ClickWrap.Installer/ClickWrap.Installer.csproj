@@ -8,6 +8,10 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>ClickWrap.Installer</RootNamespace>
 
+    <!-- Embedded into the exe itself, so the icon travels with the single distributed file
+         (and with the update.exe copied beside the installed app). -->
+    <ApplicationIcon>appicon.ico</ApplicationIcon>
+
     <!-- The installer runs before setup.exe, so it cannot assume .NET is on the machine. -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>true</SelfContained>
@@ -34,6 +38,11 @@
   <ItemGroup>
     <PackageReference Include="YamlDotNet" Version="16.3.0" />
     <ProjectReference Include="..\ClickWrap.UpdateClient\ClickWrap.UpdateClient.csproj" />
+  </ItemGroup>
+
+  <!-- Also as a WPF resource, so the window and taskbar can use it at runtime. -->
+  <ItemGroup>
+    <Resource Include="appicon.ico" />
   </ItemGroup>
 
   <!-- Always embedded under the same logical name, so the code never varies per app. -->

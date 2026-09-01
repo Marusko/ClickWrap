@@ -58,3 +58,12 @@ updates are applied, so there is no separate updater to ship.
   identity, and every existing user gets a duplicate side-by-side install instead of an update.
 - **Set `CLICKWRAP_PUBLIC_BASE_URL`** on the server. Behind a Cloudflare Tunnel the inbound host
   is not the public one, so without it installers are handed download URLs they cannot reach.
+
+## Credits
+
+Icons courtesy of [Axialis Software](https://www.axialis.com).
+
+The icon is used unmodified, as its licence requires: it ships with the 16x16 and 24x24 frames it
+was generated with, and must not be re-rendered at other sizes for distribution. That is why the
+installer's icon looks slightly soft at Explorer's 32px and 48px views — it is deliberate, not an
+oversight.

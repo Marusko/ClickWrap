@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using System.Net.Http;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Navigation;
 
 namespace ClickWrap.Installer;
 
@@ -103,6 +105,21 @@ public partial class MainWindow : Window, IInstallProgress
         {
             DragMove();
         }
+    }
+
+    // WPF hyperlinks do not navigate on their own.
+    private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            // No browser available. Not worth interrupting an install over.
+        }
+
+        e.Handled = true;
     }
 
     private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();

@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Installer"
+        Icon="appicon.ico"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -14,6 +15,14 @@
         FontSize="13"
         Foreground="{StaticResource TextPrimaryBrush}"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
+
+    <Window.Resources>
+        <!-- Muted by default; the theme's hover triggers still bring it to the accent colour. -->
+        <Style x:Key="CreditLinkStyle" TargetType="Hyperlink" BasedOn="{StaticResource {x:Type Hyperlink}}">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+        </Style>
+    </Window.Resources>
+
 
     <!-- Two layers, as in the store's ThemedDialog: an empty border carries the
          rasterised drop shadow, the content border on top keeps text crisp. -->
@@ -52,10 +61,21 @@
 
                 <ProgressBar x:Name="Progress" Margin="0,18,0,0" IsIndeterminate="True" />
 
-                <StackPanel x:Name="ButtonRow" Orientation="Horizontal" HorizontalAlignment="Right"
-                            Margin="0,20,0,0" Visibility="Collapsed">
-                    <Button x:Name="CloseButton" MinWidth="86" Content="Close" Click="CloseButton_Click" />
-                </StackPanel>
+                <Grid Margin="0,20,0,0">
+                    <!-- Attribution required by the icon licence. Deliberately quiet: it sits on
+                         the footer line the button already occupies, so it costs no extra height. -->
+                    <TextBlock VerticalAlignment="Center" HorizontalAlignment="Left"
+                               FontSize="10.5" Opacity="0.75">
+                        <Hyperlink NavigateUri="https://www.axialis.com"
+                                   Style="{StaticResource CreditLinkStyle}"
+                                   RequestNavigate="Hyperlink_RequestNavigate">Icons courtesy of Axialis Software</Hyperlink>
+                    </TextBlock>
+
+                    <StackPanel x:Name="ButtonRow" Orientation="Horizontal" HorizontalAlignment="Right"
+                                Visibility="Collapsed">
+                        <Button x:Name="CloseButton" MinWidth="86" Content="Close" Click="CloseButton_Click" />
+                    </StackPanel>
+                </Grid>
             </StackPanel>
         </Border>
     </Grid>
