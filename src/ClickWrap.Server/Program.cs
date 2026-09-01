@@ -30,10 +30,12 @@ builder.Services.Configure<ForwardedHeadersOptions>(forwarded =>
 });
 
 // Data Protection keys otherwise land in the container filesystem and are lost on every redeploy.
-// Keeping them on the data volume also means a second replica would agree with the first.
-// The leading dot keeps the folder out of the app listing: AppStore ids must start alphanumeric.
+// This resolves to /app/dataprotection-keys in the container, which is mounted as its own volume;
+// on Windows it lands beside the build output. Deliberately not under CLICKWRAP_DATA: the key ring
+// is not app content and has no business sharing a volume with the published packages.
 builder.Services.AddDataProtection()
-    .PersistKeysToFileSystem(Directory.CreateDirectory(Path.Combine(options.DataPath, ".dataprotection-keys")))
+    .PersistKeysToFileSystem(
+        Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "dataprotection-keys")))
     .SetApplicationName("ClickWrap");
 
 // The data folder is the only thing this server needs to work, and an unmounted volume is the
