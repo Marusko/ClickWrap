@@ -11,3 +11,6 @@ out/
 # sample.yaml is the committed template.
 src/ClickWrap.Installer/apps/*.yaml
 !src/ClickWrap.Installer/apps/sample.yaml
+
+# Publish profiles carry registry hosts, account names and credentials.
+**/Properties/PublishProfiles/
