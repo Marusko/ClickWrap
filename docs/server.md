@@ -139,7 +139,7 @@ The server prints what it resolved, so a misconfigured deployment is obvious in 
 
 ```
 --------------------- ClickWrap server starting v1.0.0 ---------------------
-Current user: Spravca
+Current user: app
 Working directory: /app
 Listening on: http://0.0.0.0:8080
 Public base URL: https://updates.example.com

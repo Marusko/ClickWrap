@@ -6,3 +6,8 @@ obj/
 # Local server data (app zips) must never be committed
 data/
 out/
+
+# Per-app installer configs hold the real server URL, so they stay local.
+# sample.yaml is the committed template.
+src/ClickWrap.Installer/apps/*.yaml
+!src/ClickWrap.Installer/apps/sample.yaml

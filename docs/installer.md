@@ -150,7 +150,7 @@ Remove-Item 'HKCU:\Software\ClickWrap\race-timer' -Recurse -Force
 The installer runs *before* `setup.exe` has installed any runtime, so it cannot be
 framework-dependent — on a clean machine it would not start. Self-contained single-file WPF with
 compression is ~62 MB, which is the WPF + runtime floor rather than anything this project adds
-(your `ApiCreator.exe`, built the same way, is the same size).
+(any WPF app published the same way lands at the same size).
 
 Set in the csproj: `SelfContained`, `PublishSingleFile`,
 `IncludeNativeLibrariesForSelfExtract`, `EnableCompressionInSingleFile`, plus `DebugType=none`
@@ -159,6 +159,10 @@ and `AllowedReferenceRelatedFileExtensions=none` so publish output really is one
 ## Building one exe per app
 
 Add `src/ClickWrap.Installer/apps/{appId}.yaml`, then:
+
+> Per-app configs are **gitignored**, because `serverUrl` is the address of your own deployment.
+> `sample.yaml` is the one committed file and serves as the template — copy it. A fresh clone
+> therefore builds only the sample until you add your own.
 
 ```bash
 pwsh ./build/publish-installers.ps1 -App race-timer
