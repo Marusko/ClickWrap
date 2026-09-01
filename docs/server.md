@@ -93,7 +93,30 @@ the installer and the store launcher (accent `#2563EB`, surface `#FFFFFF`, backg
 so the admin UI reads as part of the same family of tools.
 
 There is **no app-level auth by design** — this is expected to sit behind a Cloudflare Tunnel
-with Cloudflare Access in front of `/admin`. Do not expose it directly.
+with Cloudflare Access in front of it. Do not expose it directly.
+
+### Protect the whole host, not just `/admin`
+
+Put the Access application on `your-host/*` and add a **bypass policy for `/api/*`**, which is
+all the installers need. Do not scope Access to `/admin` alone.
+
+The reason is Blazor, not Cloudflare. `/` and `/admin` are two routes of one interactive circuit:
+once a browser has loaded any page, the router switches between them **client-side over the
+SignalR connection**, with no further HTTP request. Access only sees HTTP requests, so it never
+gets a chance to challenge — the admin page renders, upload control included, from a session that
+only ever passed through the public page.
+
+That is not merely a missed prompt on the nav button. Anyone able to load an unprotected page can
+reach the same UI directly:
+
+```js
+history.pushState({}, '', '/admin');
+window.dispatchEvent(new PopStateEvent('popstate'));
+```
+
+Protecting the whole host closes it: the circuit itself cannot be established without passing
+Access first. Nothing is lost by doing so — the pages are for you, and installers only ever call
+`/api/...`.
 
 Uploads stream to a staging folder and are hashed on the way through, so nothing is buffered
 whole in memory. The zip is then checked for `setup.exe` and a `*.application` at its root

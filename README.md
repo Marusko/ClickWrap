@@ -58,6 +58,9 @@ updates are applied, so there is no separate updater to ship.
   identity, and every existing user gets a duplicate side-by-side install instead of an update.
 - **Set `CLICKWRAP_PUBLIC_BASE_URL`** on the server. Behind a Cloudflare Tunnel the inbound host
   is not the public one, so without it installers are handed download URLs they cannot reach.
+- **Scope Cloudflare Access to the whole host, with a bypass for `/api/*`.** Protecting `/admin`
+  alone does not work: Blazor routes to it client-side over the SignalR circuit, so Access never
+  sees a request to challenge. See [server.md](docs/server.md#protect-the-whole-host-not-just-admin).
 
 ## Credits
 

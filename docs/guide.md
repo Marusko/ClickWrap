@@ -156,7 +156,11 @@ automated and it discards the app's ClickOnce data.
 ## Deploying the server
 
 Bind `0.0.0.0` (the default), put it behind a Cloudflare Tunnel, and let Cloudflare Access
-protect `/admin`. There is no app-level auth by design.
+protect it. There is no app-level auth by design.
+
+**Scope Access to the whole host with a bypass for `/api/*`** — not to `/admin`. Blazor routes
+between pages client-side over the SignalR circuit, so Access never sees a request for `/admin`
+and never challenges. See [server.md](server.md#protect-the-whole-host-not-just-admin).
 
 The Dockerfile lives in `src/ClickWrap.Server/`, with that folder as the build context. Stamp the
 version into both the image label and the binary from one argument:
