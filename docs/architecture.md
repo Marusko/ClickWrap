@@ -70,6 +70,7 @@ ClickOnce is Windows-only, so a portable build had nothing to be portable for.
 | State | Location | Owner |
 | --- | --- | --- |
 | Published versions | `$CLICKWRAP_DATA/{appId}/{version}/` | server |
+| Download counts | `$CLICKWRAP_DATA/{appId}/stats.json` | server |
 | Latest-version answer | derived from folder names at request time | server |
 | Extracted publish output | `installFolder` | installer |
 | The updater | `installFolder\update.exe` | installer |

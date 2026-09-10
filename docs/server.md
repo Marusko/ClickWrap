@@ -8,6 +8,7 @@ database, no login.
 ```
 $CLICKWRAP_DATA/
   race-timer/
+    stats.json         # download counters for this app
     3.3.0.1/
       app.zip          # zipped ClickOnce publish folder
       metadata.json
@@ -35,6 +36,33 @@ $CLICKWRAP_DATA/
 beats `3.9.0.0`, which string ordering would get wrong. Folders that do not parse as a version,
 or that have no `app.zip`, are skipped. A version folder dropped in by hand works; without
 `metadata.json` the size and date come from the file itself and there are no release notes.
+
+`stats.json` sits beside the version folders and is the only file the server writes outside an
+upload:
+
+```json
+{
+  "appId": "race-timer",
+  "totalDownloads": 412,
+  "lastDownloadUtc": "2026-09-02T11:20:44+00:00",
+  "versions": {
+    "3.4.0.0": { "downloads": 388, "lastDownloadUtc": "2026-09-02T11:20:44+00:00" }
+  }
+}
+```
+
+One counter is added per request to the download endpoint, before the file is streamed — so an
+aborted download still counts and a resumed range request counts twice. It is a popularity
+signal, not billing. `totalDownloads` keeps counting versions that have since been deleted, which
+is why it is stored rather than summed from `versions`.
+
+Counting is best-effort: writes are serialised per app so two concurrent downloads cannot lose a
+count, go through a temporary file so a crash cannot leave a truncated one, and any failure is
+logged and swallowed rather than allowed to break the download. An unreadable `stats.json` starts
+again from zero. Delete the file to reset an app's counters; nothing else depends on it.
+
+The counts are shown on both pages: total per app on `/`, and per version on `/admin` once an app
+is selected.
 
 ## API
 
@@ -168,7 +196,7 @@ Listening on: http://0.0.0.0:8080
 Public base URL: https://updates.example.com
 Data path: /data
 Max upload: 512 MB
-Apps published: 2 (7 versions)
+Apps published: 2 (7 versions, 412 downloads served)
 ```
 
 With `CLICKWRAP_PUBLIC_BASE_URL` unset, that line says so and names the variable, because it is
@@ -184,10 +212,19 @@ network and so is never in a known-proxy range.
 
 ### Data Protection keys
 
-Keys are persisted to `$CLICKWRAP_DATA/.dataprotection-keys` rather than the container
-filesystem, so they survive a redeploy and would be shared by a second replica. The leading dot
-keeps the folder invisible to the app listing — app ids must start with an alphanumeric
-character, so it can never be mistaken for an app or reached through the API.
+Keys are persisted to a `dataprotection-keys` folder beside the binaries — `/app/dataprotection-keys`
+in the container, next to the build output on Windows. Deliberately *not* under `CLICKWRAP_DATA`:
+the key ring is not app content and has no business sharing a volume with the published packages.
+
+**You do not need to mount a volume for it.** Nothing in this app outlives a request — no login,
+no cookies, no sessions — so a key ring regenerated on redeploy costs at most one reload for
+anyone who happened to have a page open at that moment, whose antiforgery token and Blazor
+circuit were signed with keys that no longer exist. Everything worth keeping is in
+`CLICKWRAP_DATA`.
+
+Mount `/app/dataprotection-keys` only if you want redeploys to be seamless for open pages, or if
+you ever run a second replica: two instances with separate key rings cannot validate each other's
+tokens, so they would have to share this folder.
 
 The remaining startup warning, *"No XML encryptor configured"*, is expected on Linux: there is no
 DPAPI, and encrypting the key ring would mean managing a certificate. It is acceptable here
