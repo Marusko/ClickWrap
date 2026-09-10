@@ -11,6 +11,7 @@ var builder = WebApplication.CreateBuilder(args);
 var options = ServerOptions.FromConfiguration(builder.Configuration);
 builder.Services.AddSingleton(options);
 builder.Services.AddSingleton<AppStore>();
+builder.Services.AddSingleton<StatsStore>();
 
 // Bind to all interfaces by default: this is reached through a Cloudflare Tunnel, not loopback.
 // An explicit ASPNETCORE_URLS (or the dev launch profile) still wins.
@@ -29,10 +30,11 @@ builder.Services.Configure<ForwardedHeadersOptions>(forwarded =>
     forwarded.KnownProxies.Clear();
 });
 
-// Data Protection keys otherwise land in the container filesystem and are lost on every redeploy.
-// This resolves to /app/dataprotection-keys in the container, which is mounted as its own volume;
-// on Windows it lands beside the build output. Deliberately not under CLICKWRAP_DATA: the key ring
-// is not app content and has no business sharing a volume with the published packages.
+// Resolves to /app/dataprotection-keys in the container, and beside the build output on Windows.
+// Deliberately not under CLICKWRAP_DATA: the key ring is not app content and has no business
+// sharing a volume with the published packages. Left unmounted it is regenerated on every
+// redeploy, which costs nothing here -- this app has no login, cookies or sessions, so the keys
+// only ever protect an in-flight antiforgery token and Blazor circuit.
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(
         Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "dataprotection-keys")))
@@ -84,6 +86,8 @@ app.Lifetime.ApplicationStarted.Register(() =>
     var store = app.Services.GetRequiredService<AppStore>();
     var appIds = store.GetAppIds();
     var versionCount = appIds.Sum(id => store.GetVersions(id).Count);
+    var stats = app.Services.GetRequiredService<StatsStore>();
+    var downloadCount = appIds.Sum(id => stats.GetStats(id).TotalDownloads);
 
     app.Logger.LogInformation(
         "--------------------- ClickWrap server starting v{Version} ---------------------",
@@ -96,7 +100,9 @@ app.Lifetime.ApplicationStarted.Register(() =>
         options.PublicBaseUrl ?? $"(unset - built from forwarded headers, set {ServerOptions.PublicBaseUrlVariable} in production)");
     app.Logger.LogInformation("Data path: {DataPath}", options.DataPath);
     app.Logger.LogInformation("Max upload: {MaxUploadMb} MB", options.MaxUploadMb);
-    app.Logger.LogInformation("Apps published: {AppCount} ({VersionCount} versions)", appIds.Count, versionCount);
+    app.Logger.LogInformation(
+        "Apps published: {AppCount} ({VersionCount} versions, {DownloadCount} downloads served)",
+        appIds.Count, versionCount, downloadCount);
 });
 
 app.Run();

@@ -1,6 +1,7 @@
 @page "/"
 @using ClickWrap.Server.Storage
 @inject AppStore Store
+@inject StatsStore Stats
 
 <PageTitle>ClickWrap</PageTitle>
 
@@ -28,6 +29,7 @@ else
                 <MudTh>App id</MudTh>
                 <MudTh>Latest</MudTh>
                 <MudTh>Published</MudTh>
+                <MudTh Style="text-align:right">Downloads</MudTh>
                 <MudTh Style="text-align:right">Versions</MudTh>
             </HeaderContent>
             <RowTemplate>
@@ -49,6 +51,7 @@ else
                         @(context.Latest?.Metadata.UploadedUtc.UtcDateTime.ToString("yyyy-MM-dd HH:mm") ?? "—")
                     </MudText>
                 </MudTd>
+                <MudTd DataLabel="Downloads" Style="text-align:right">@context.Downloads</MudTd>
                 <MudTd DataLabel="Versions" Style="text-align:right">@context.Count</MudTd>
             </RowTemplate>
         </MudTable>
@@ -64,10 +67,10 @@ else
             .Select(id =>
             {
                 var versions = Store.GetVersions(id);
-                return new AppSummary(id, versions.FirstOrDefault(), versions.Count);
+                return new AppSummary(id, versions.FirstOrDefault(), versions.Count, Stats.GetStats(id).TotalDownloads);
             })
             .ToList();
     }
 
-    private sealed record AppSummary(string AppId, VersionEntry? Latest, int Count);
+    private sealed record AppSummary(string AppId, VersionEntry? Latest, int Count, long Downloads);
 }

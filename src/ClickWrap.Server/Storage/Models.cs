@@ -24,3 +24,25 @@ public sealed record LatestResponse(
     [property: JsonPropertyName("uploadedUtc")] DateTimeOffset UploadedUtc,
     [property: JsonPropertyName("sizeBytes")] long SizeBytes,
     [property: JsonPropertyName("sha256")] string Sha256);
+
+/// <summary>Contents of stats.json, stored beside an app's version folders.</summary>
+public sealed record AppStats
+{
+    public required string AppId { get; init; }
+
+    /// <summary>Every download ever served, including of versions that have since been removed.</summary>
+    public long TotalDownloads { get; init; }
+
+    public DateTimeOffset? LastDownloadUtc { get; init; }
+
+    public Dictionary<string, VersionStats> Versions { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public long DownloadsOf(string version) => Versions.GetValueOrDefault(version)?.Downloads ?? 0;
+}
+
+/// <summary>Per-version counters inside <see cref="AppStats"/>.</summary>
+public sealed record VersionStats
+{
+    public long Downloads { get; init; }
+    public DateTimeOffset? LastDownloadUtc { get; init; }
+}

@@ -1,6 +1,7 @@
 @page "/admin"
 @using ClickWrap.Server.Storage
 @inject AppStore Store
+@inject StatsStore Stats
 @inject ServerOptions Options
 @inject ISnackbar Snackbar
 @inject ILogger<Admin> Logger
@@ -96,6 +97,7 @@
                         <MudTh>Version</MudTh>
                         <MudTh>Uploaded (UTC)</MudTh>
                         <MudTh Style="text-align:right">Size</MudTh>
+                        <MudTh Style="text-align:right">Downloads</MudTh>
                     </HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="Version">
@@ -108,9 +110,16 @@
                         </MudTd>
                         <MudTd DataLabel="Uploaded">@context.Metadata.UploadedUtc.UtcDateTime.ToString("yyyy-MM-dd HH:mm")</MudTd>
                         <MudTd DataLabel="Size" Style="text-align:right">@FormatSize(context.Metadata.SizeBytes)</MudTd>
+                        <MudTd DataLabel="Downloads" Style="text-align:right">@_stats.DownloadsOf(context.Version)</MudTd>
                     </RowTemplate>
                 </MudTable>
             </MudPaper>
+
+            <MudText Typo="Typo.caption" Class="mud-text-secondary d-block mt-2">
+                @_stats.TotalDownloads downloads in total@(_stats.LastDownloadUtc is null
+                    ? "."
+                    : $", last on {_stats.LastDownloadUtc.Value.UtcDateTime:yyyy-MM-dd HH:mm} UTC.")
+            </MudText>
         }
     </MudItem>
 </MudGrid>
@@ -118,8 +127,11 @@
 @code {
     private const string NewAppSentinel = " new";
 
+    private static readonly AppStats EmptyStats = new() { AppId = "" };
+
     private IReadOnlyList<string> _appIds = [];
     private IReadOnlyList<VersionEntry> _versions = [];
+    private AppStats _stats = EmptyStats;
     private string _selectedApp = NewAppSentinel;
     private string _newAppId = "";
     private string _version = "";
@@ -138,8 +150,12 @@
         RefreshVersions();
     }
 
-    private void RefreshVersions() =>
-        _versions = _selectedApp == NewAppSentinel ? [] : Store.GetVersions(_selectedApp);
+    private void RefreshVersions()
+    {
+        var isNewApp = _selectedApp == NewAppSentinel;
+        _versions = isNewApp ? [] : Store.GetVersions(_selectedApp);
+        _stats = isNewApp ? EmptyStats : Stats.GetStats(_selectedApp);
+    }
 
     private void OnFileSelected(IBrowserFile? file)
     {

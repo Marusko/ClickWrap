@@ -34,7 +34,7 @@ public static class UpdateApi
                 latest.Metadata.Sha256));
         });
 
-        routes.MapGet("/api/apps/{appId}/versions/{version}/download", (string appId, string version, AppStore store) =>
+        routes.MapGet("/api/apps/{appId}/versions/{version}/download", (string appId, string version, AppStore store, StatsStore stats) =>
         {
             if (!AppStore.IsValidSegment(appId) || !AppStore.IsValidSegment(version))
             {
@@ -46,6 +46,10 @@ public static class UpdateApi
             {
                 return Results.NotFound(new { error = $"Version {version} of '{appId}' was not found." });
             }
+
+            // Counted on the request, not on a completed transfer: an aborted download still counts,
+            // and a resumed range request counts twice. Fine for "how popular is this version".
+            stats.RecordDownload(appId, entry.Version);
 
             // Range processing lets a large download resume instead of restarting.
             return Results.File(
