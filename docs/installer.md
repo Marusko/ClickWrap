@@ -21,7 +21,9 @@ uninstall leaves behind. See [Uninstall](#uninstall).
    installed anything — see [clickonce.md](clickonce.md#setupexe-returns-before-the-install-happens).
    If ClickOnce goes quiet without getting there (the security prompt was declined, or it showed
    an error), the install fails here and nothing is recorded.
-10. Record where the app landed under `HKCU\Software\ClickWrap\{appId}`.
+10. Point the app's Add/Remove Programs *Uninstall* at `update.exe --uninstall` — see
+    [Add/Remove Programs](#addremove-programs).
+11. Record where the app landed under `HKCU\Software\ClickWrap\{appId}`.
 
 ## install.yaml
 
@@ -130,9 +132,14 @@ separate file: it already sits in the install folder, costs no extra 62 MB, and 
 same build as the installer that put the app there. The original `RaceTimerSetup.exe` accepts the
 switch too.
 
-Apps start it the same way they start an update — `InstalledApp.UninstallAndExit(appId)`, see
-[client.md](client.md#uninstalling). The app has to exit: files it holds open (logs, a database)
-cannot be deleted while it runs.
+Three ways in, all the same flow:
+
+- **Settings > Apps > Uninstall**, once the installer has hooked the entry — see
+  [Add/Remove Programs](#addremove-programs).
+- **From the app**, `InstalledApp.UninstallAndExit(appId)` — see
+  [client.md](client.md#uninstalling). The app has to exit: files it holds open (logs, a
+  database) cannot be deleted while it runs.
+- **By hand**, `update.exe --uninstall` in the install folder.
 
 1. Ask first. Unlike an install, this can delete the user's data, so the window waits for
    **Uninstall** and offers the data checkbox.
@@ -146,8 +153,39 @@ cannot be deleted while it runs.
 5. If ticked, delete the app's data.
 6. Remove whatever is still locked once the window closes (see below).
 
-If ClickOnce has already removed the app — someone used Settings > Apps — step 2 is skipped and
-the rest still runs, so the uninstaller also doubles as "clean up after it".
+If ClickOnce has already removed the app on its own — the entry was not hooked — step 2 is
+skipped and the rest still runs, so the uninstaller also doubles as "clean up after it".
+
+### Add/Remove Programs
+
+> **Unsupported by Microsoft.** Read the warning in the [README](../README.md#warning-the-installer-rewrites-the-apps-addremove-programs-entry)
+> before relying on it.
+
+ClickOnce's Add/Remove Programs entry runs its own dialog and nothing else, which is why its
+uninstall leaves the install folder behind. So after every successful install or update, the
+installer rewrites that entry's `UninstallString`:
+
+```
+before  rundll32.exe dfshim.dll,ShArpMaintain RaceTimer.application, Culture=…, PublicKeyToken=…
+after   "C:\…\ClickWrap\race-timer\update.exe" --uninstall --clickonce rundll32.exe dfshim.dll,ShArpMaintain RaceTimer.application, Culture=…
+```
+
+ClickOnce's command stays on the end, after `--clickonce`, for two reasons:
+
+- The uninstaller runs it from there for step 2 — it is the only record of the app's identity.
+- Everything that recognises a ClickOnce entry looks for `ShArpMaintain` plus the deployment
+  name, including installers built before the hook existed. Were the command dropped, their
+  orphan cleanup would take a hooked app for uninstalled and delete its folder.
+
+It is re-applied on every run, because ClickOnce rewrites the entry whenever it installs a
+version — see [clickonce.md](clickonce.md#clickonce-rewrites-its-entry-on-every-update). *Restore
+the application to its previous state* in its dialog presumably does the same, and nothing
+re-hooks after that until the next installer run. It is only
+applied when `update.exe` is actually on disk: a hook to a missing exe would leave Settings > Apps
+unable to uninstall at all.
+
+Set `uninstall.hookAddRemovePrograms: false` to opt an app out. The next installer run puts
+ClickOnce's own command back.
 
 ### What it removes
 
@@ -170,6 +208,7 @@ uninstall:
     - 'HKCU\Software\TimeMaker'
   deleteData: false           # checkbox starts ticked?
   askAboutData: true          # show the checkbox at all?
+  hookAddRemovePrograms: true # Settings > Apps runs this uninstaller
 ```
 
 | Key | Default | Notes |
@@ -178,9 +217,11 @@ uninstall:
 | `registryKeys` | none | `HKCU\Software\...` or `HKEY_CURRENT_USER\Software\...`, deleted with all subkeys. |
 | `deleteData` | `false` | Starting state of *Also delete its settings, logs and other data*. |
 | `askAboutData` | `true` | `false` hides the checkbox and applies `deleteData` without asking. The window still lists what it is deleting. |
+| `hookAddRemovePrograms` | `true` | Point Settings > Apps > Uninstall at this uninstaller. Unsupported by Microsoft; see [Add/Remove Programs](#addremove-programs). |
 
-Omit the section when the app keeps no data — the checkbox then does not appear. Nothing here
-affects installs or updates.
+Omit the section when the app keeps no data — the checkbox then does not appear, and
+Settings > Apps is still hooked. `hookAddRemovePrograms` is the one key that affects installs and
+updates: they are what apply or remove the hook.
 
 Because the uninstaller deletes whole folders, entries are checked at startup and a bad one fails
 the installer with a message, as a bad `preInstall` step does:
@@ -206,8 +247,9 @@ characters in a user's profile path need no quoting of their own.
 
 ClickOnce uninstall removes only its own Add/Remove Programs entry and store files. The install
 folder — roughly 62 MB of it being `update.exe` — and the registry key both survive, and there is
-no hook into ClickOnce uninstall to prevent that. The [uninstaller](#uninstall) avoids this, but
-an app removed through Settings > Apps bypasses it.
+no hook into ClickOnce uninstall to prevent that. The [uninstaller](#uninstall) avoids this, and
+[hooking Add/Remove Programs](#addremove-programs) routes Settings > Apps through it, but an
+unhooked entry (opted out, or restored by ClickOnce) still bypasses it.
 
 So every installer run prunes **any** ClickWrap app, not just its own: for each registration
 whose ClickOnce entry no longer exists, the folder and key are removed. Orphans are collected

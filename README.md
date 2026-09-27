@@ -7,6 +7,8 @@ and runs `setup.exe`.
 ClickOnce stays the actual install and update mechanism. Nothing here replaces it — the
 uninstaller (`update.exe --uninstall`) runs ClickOnce's own uninstall, then removes what that
 leaves behind: the install folder, the registry record and, if the user ticks it, the app's data.
+Settings > Apps runs that uninstaller too, which means rewriting an entry ClickOnce owns — read
+[the warning below](#warning-the-installer-rewrites-the-apps-addremove-programs-entry).
 
 ```
 src/ClickWrap.Server/         Blazor Server admin page + two API endpoints, files on disk
@@ -49,6 +51,46 @@ pwsh ./build/publish-installers.ps1 -App race-timer
 
 `out/race-timer/RaceTimerSetup.exe` is the single file you distribute. Running it again is how
 updates are applied, so there is no separate updater to ship.
+
+## Warning: the installer rewrites the app's Add/Remove Programs entry
+
+> [!WARNING]
+> **ClickWrap changes a Windows registry entry that ClickOnce owns, in an unsupported way.**
+> If an app's `update.exe` goes missing, that app can no longer be uninstalled from
+> Settings > Apps until its installer is run again. Read this section before shipping to machines
+> you do not control.
+
+After every install or update the installer points the app's *Uninstall* in Settings > Apps at
+`update.exe --uninstall`, so removing the app there also deletes its install folder, its
+registration and (if ticked) its data. Microsoft does not document or support editing that entry.
+It works on Windows 11 with .NET 10 as tested, but nothing guarantees a future Windows or
+ClickOnce update keeps it working.
+
+What you are accepting:
+
+- **If `update.exe` is gone, Settings > Apps cannot uninstall the app.** Deleting the install
+  folder by hand, or a cleaner or antivirus removing `update.exe`, leaves an Uninstall button
+  that fails. Recover by running the app's installer again (it restores `update.exe` and the
+  entry), or run ClickOnce directly — the original command is kept on the end of the entry's
+  `UninstallString`, after `--clickonce`:
+
+  ```powershell
+  Get-ChildItem HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall |
+      Get-ItemProperty | Where-Object DisplayName -eq 'Race Timer' | Select-Object UninstallString
+  ```
+
+- **ClickOnce puts its own entry back** every time it installs a version — verified on update, and
+  expected for *Restore the application to its previous state* in its dialog. Updates go through
+  the installer, which re-hooks within a second. After a restore, though, Uninstall runs ClickOnce
+  alone, as if ClickWrap were not there, until the next installer run hooks it again.
+- **Installers built before this change** still recognise a hooked entry — the ClickOnce command
+  is kept in it precisely so their orphan cleanup cannot mistake the app for uninstalled — but
+  their `onExistingInstall: reinstall` cannot open the ClickOnce dialog from a hooked entry.
+  Rebuild every app's installer rather than mixing versions on one machine.
+- **The hook is per machine and per user**, re-applied by every run of the installer.
+
+To opt an app out, set `uninstall.hookAddRemovePrograms: false` in its YAML; the next installer run
+puts ClickOnce's own command back. See [installer.md](docs/installer.md#addremove-programs).
 
 ## The three things most likely to bite you
 

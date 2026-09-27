@@ -46,3 +46,6 @@ preInstall: []
 #  deleteData: false
 #  # Show that checkbox. When false, deleteData decides without asking. Default true.
 #  askAboutData: true
+#  # Make Settings > Apps > Uninstall run this uninstaller rather than ClickOnce's dialog alone.
+#  # Default true. Rewrites an entry ClickOnce owns, unsupported by Microsoft: see the README.
+#  hookAddRemovePrograms: true

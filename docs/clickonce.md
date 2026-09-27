@@ -98,6 +98,21 @@ There is no supported way to skip the dialog. Tools that do, such as Wunder.Clic
 delete ClickOnce's store directly and identify an app's entries by public key token — which,
 with unsigned manifests, is `0000000000000000` for every app and would take them all out.
 
+## ClickOnce rewrites its entry on every update
+
+With the entry's `UninstallString` hooked to point at `update.exe` (see
+[installer.md](installer.md#addremove-programs)), updating 1.0.0.0 to 1.0.1.0:
+
+| Time | `UninstallString` |
+| --- | --- |
+| before | `"…\update.exe" --uninstall --clickonce rundll32.exe dfshim.dll,ShArpMaintain …` |
+| 19:54:34.5 | `rundll32.exe dfshim.dll,ShArpMaintain …` — ClickOnce wrote its own back, with `DisplayVersion` 1.0.1.0 |
+| 19:54:35.4 | hooked again by the installer |
+
+The hooked entry did not disturb anything else: the update applied normally, and afterwards
+*Uninstall* in Settings > Apps started `update.exe` with the full hooked command line, from which
+the uninstaller ran ClickOnce's dialog and removed the app.
+
 ## ClickOnce uninstall only removes what ClickOnce owns
 
 After uninstalling through Add/Remove Programs:

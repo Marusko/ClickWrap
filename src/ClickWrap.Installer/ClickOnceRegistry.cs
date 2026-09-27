@@ -5,12 +5,20 @@ using Microsoft.Win32;
 namespace ClickWrap.Installer;
 
 /// <summary>An existing per-user ClickOnce install, as recorded in Add/Remove Programs.</summary>
+/// <param name="UninstallString">As recorded, so possibly hooked to point at update.exe.</param>
 public sealed record ClickOnceInstallation(
     string DisplayName,
     string? Version,
     string? InstallFolder,
     string UninstallString,
-    string RegistryKeyName);
+    string RegistryKeyName)
+{
+    /// <summary>ClickOnce's own "rundll32.exe dfshim.dll,ShArpMaintain …", hooked or not.</summary>
+    public string ClickOnceUninstallString { get; } = ClickOnceRegistry.Unhooked(UninstallString);
+
+    /// <summary>True when Add/Remove Programs runs update.exe rather than ClickOnce directly.</summary>
+    public bool IsHooked => !string.Equals(UninstallString, ClickOnceUninstallString, StringComparison.Ordinal);
+}
 
 /// <summary>
 /// Finds the Add/Remove Programs entry ClickOnce writes for an installed deployment.
@@ -40,6 +48,7 @@ public static class ClickOnceRegistry
 
             // ClickOnce entries look like:
             //   rundll32.exe dfshim.dll,ShArpMaintain App.application, Culture=…, PublicKeyToken=…, …
+            // A hooked entry keeps that whole command at its end, so this still matches it.
             if (!uninstallString.Contains("ShArpMaintain", StringComparison.OrdinalIgnoreCase) ||
                 !uninstallString.Contains(deploymentName, StringComparison.OrdinalIgnoreCase))
             {
@@ -105,13 +114,68 @@ public static class ClickOnceRegistry
 
     private static Process? StartMaintenance(ClickOnceInstallation installation)
     {
-        // The recorded string is already "rundll32.exe dfshim.dll,ShArpMaintain <identity>".
+        // "rundll32.exe dfshim.dll,ShArpMaintain <identity>", with any hook already taken off.
         const string prefix = "rundll32.exe ";
-        var arguments = installation.UninstallString.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
-            ? installation.UninstallString[prefix.Length..]
-            : installation.UninstallString;
+        var command = installation.ClickOnceUninstallString;
+        var arguments = command.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? command[prefix.Length..]
+            : command;
 
         return Process.Start(new ProcessStartInfo("rundll32.exe", arguments) { UseShellExecute = true });
+    }
+
+    /// <summary>
+    /// Sits between the uninstaller and ClickOnce's own command in a hooked UninstallString:
+    /// "C:\…\update.exe" --uninstall --clickonce rundll32.exe dfshim.dll,ShArpMaintain …
+    /// </summary>
+    private const string HookMarker = " --clickonce ";
+
+    /// <summary>
+    /// Points the app's Add/Remove Programs Uninstall at update.exe, so removing it from
+    /// Settings > Apps also cleans up after it. Idempotent: re-hooking replaces the old hook.
+    /// </summary>
+    /// <remarks>
+    /// ClickOnce's command stays on the end of the string: the uninstaller runs it from there, and
+    /// anything that recognises a ClickOnce entry by "ShArpMaintain" plus the deployment name —
+    /// <see cref="Find"/>, and the same check in installers built before this existed — still
+    /// does. Without that, orphan pruning would take a hooked app for uninstalled and delete it.
+    /// </remarks>
+    /// <returns>False when the entry could not be written; the app is installed either way.</returns>
+    public static bool Hook(ClickOnceInstallation installation, string uninstallerPath) =>
+        SetUninstallString(
+            installation,
+            $"\"{uninstallerPath}\" {InstalledApp.UninstallArgument}{HookMarker}{installation.ClickOnceUninstallString}");
+
+    /// <summary>Puts ClickOnce's own command back, when an app opts out of the hook.</summary>
+    public static bool Unhook(ClickOnceInstallation installation) =>
+        !installation.IsHooked || SetUninstallString(installation, installation.ClickOnceUninstallString);
+
+    /// <summary>The ClickOnce command inside a hooked UninstallString, or the string itself.</summary>
+    internal static string Unhooked(string uninstallString)
+    {
+        var marker = uninstallString.IndexOf(HookMarker, StringComparison.OrdinalIgnoreCase);
+        return marker >= 0 && uninstallString.Contains(InstalledApp.UninstallArgument, StringComparison.OrdinalIgnoreCase)
+            ? uninstallString[(marker + HookMarker.Length)..]
+            : uninstallString;
+    }
+
+    private static bool SetUninstallString(ClickOnceInstallation installation, string value)
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey($@"{UninstallKeyPath}\{installation.RegistryKeyName}", writable: true);
+            if (key is null)
+            {
+                return false;
+            }
+
+            key.SetValue("UninstallString", value);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            return false;
+        }
     }
 
     /// <summary>True when two folders refer to the same place, ignoring case and trailing slashes.</summary>

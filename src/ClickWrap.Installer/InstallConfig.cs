@@ -52,6 +52,12 @@ public sealed class UninstallConfig
     /// <summary>Show the checkbox. Default true.</summary>
     public bool AskAboutData { get; set; } = true;
 
+    /// <summary>
+    /// Point the app's Uninstall in Settings > Apps at this uninstaller instead of ClickOnce's
+    /// dialog alone. Default true. Rewrites an entry ClickOnce owns; see the README warning.
+    /// </summary>
+    public bool HookAddRemovePrograms { get; set; } = true;
+
     public bool HasData => Data.Count > 0 || RegistryKeys.Count > 0;
 
     public IEnumerable<string> ExpandedData => Data.Select(Environment.ExpandEnvironmentVariables);

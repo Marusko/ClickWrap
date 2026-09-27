@@ -58,6 +58,7 @@ public sealed class InstallRunner(InstallConfig config, IInstallProgress progres
 
             await RunSetupAsync(targetFolder, cancellationToken).ConfigureAwait(false);
             await WaitForClickOnceAsync(deploymentName, latest.LatestVersion, cancellationToken).ConfigureAwait(false);
+            ApplyAddRemoveProgramsHook(deploymentName, targetFolder);
 
             // Written last: only a completed install is worth pointing the app at.
             UpdaterRegistration.Record(
@@ -334,6 +335,30 @@ public sealed class InstallRunner(InstallConfig config, IInstallProgress progres
             }
 
             await Task.Delay(500, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Re-applied on every run: ClickOnce rewrites its entry, hook and all, every time it updates
+    /// the app. Turning the option off puts ClickOnce's own command back on the next run.
+    /// </summary>
+    private void ApplyAddRemoveProgramsHook(string deploymentName, string targetFolder)
+    {
+        if (ClickOnceRegistry.Find(deploymentName) is not { } installation)
+        {
+            return;
+        }
+
+        var updater = Path.Combine(targetFolder, UpdaterFileName);
+
+        // Without update.exe on disk, a hook would leave Settings > Apps unable to uninstall at all.
+        if (config.Uninstall.HookAddRemovePrograms && File.Exists(updater))
+        {
+            ClickOnceRegistry.Hook(installation, updater);
+        }
+        else
+        {
+            ClickOnceRegistry.Unhook(installation);
         }
     }
 
