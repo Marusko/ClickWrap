@@ -57,6 +57,7 @@ public sealed class InstallRunner(InstallConfig config, IInstallProgress progres
             CopySelfAsUpdater(targetFolder);
 
             await RunSetupAsync(targetFolder, cancellationToken).ConfigureAwait(false);
+            await WaitForClickOnceAsync(deploymentName, latest.LatestVersion, cancellationToken).ConfigureAwait(false);
 
             // Written last: only a completed install is worth pointing the app at.
             UpdaterRegistration.Record(
@@ -293,6 +294,82 @@ public sealed class InstallRunner(InstallConfig config, IInstallProgress progres
         if (process.ExitCode != 0)
         {
             throw new InvalidOperationException($"setup.exe exited with code {process.ExitCode}.");
+        }
+    }
+
+    /// <summary>
+    /// setup.exe hands the install to ClickOnce (dfsvc.exe) and exits straight away — before the
+    /// security prompt, and with exit code 0 even when ClickOnce then fails or is declined. Only
+    /// the Add/Remove Programs entry showing the new version proves the install happened.
+    /// </summary>
+    /// <remarks>
+    /// ClickOnce is still busy while dfsvc.exe has a window open: the progress window, the
+    /// security prompt, or an error. Once none has been open for a while and the entry has not
+    /// caught up, ClickOnce has finished without installing.
+    /// </remarks>
+    private async Task WaitForClickOnceAsync(string deploymentName, string version, CancellationToken cancellationToken)
+    {
+        progress.Status("Waiting for ClickOnce to finish… If Windows asks whether to install, choose Install.");
+        progress.Percent(null);
+
+        var quietFor = TimeSpan.FromSeconds(15);
+        var lastBusy = DateTime.UtcNow;
+
+        while (true)
+        {
+            if (IsInstalledAt(ClickOnceRegistry.Find(deploymentName), version))
+            {
+                return;
+            }
+
+            if (IsClickOnceShowingWindow())
+            {
+                lastBusy = DateTime.UtcNow;
+            }
+            else if (DateTime.UtcNow - lastBusy > quietFor)
+            {
+                throw new InvalidOperationException(
+                    $"ClickOnce did not install {config.EffectiveDisplayName} {version}. If you chose " +
+                    "\"Don't Install\", run this installer again. If ClickOnce showed an error, that error is the reason.");
+            }
+
+            await Task.Delay(500, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// True once the entry reports this version. "1.2" and "1.2.0.0" count as equal, and an entry
+    /// without a DisplayVersion is taken at its word.
+    /// </summary>
+    private static bool IsInstalledAt(ClickOnceInstallation? installation, string version)
+    {
+        if (installation is null)
+        {
+            return false;
+        }
+
+        if (!Version.TryParse(installation.Version, out var installed) || !Version.TryParse(version, out var expected))
+        {
+            return installation.Version is null || string.Equals(installation.Version, version, StringComparison.OrdinalIgnoreCase);
+        }
+
+        static Version Normalise(Version v) => new(v.Major, v.Minor, Math.Max(v.Build, 0), Math.Max(v.Revision, 0));
+        return Normalise(installed) == Normalise(expected);
+    }
+
+    private static bool IsClickOnceShowingWindow()
+    {
+        var processes = Process.GetProcessesByName("dfsvc");
+        try
+        {
+            return processes.Any(p => p.MainWindowHandle != IntPtr.Zero);
+        }
+        finally
+        {
+            foreach (var process in processes)
+            {
+                process.Dispose();
+            }
         }
     }
 

@@ -17,7 +17,11 @@ uninstall leaves behind. See [Uninstall](#uninstall).
 6. Clear the target folder and extract.
 7. Copy itself in as `update.exe`.
 8. Run `setup.exe` and wait for it.
-9. Record where the app landed under `HKCU\Software\ClickWrap\{appId}`.
+9. Wait until Add/Remove Programs shows the new version. `setup.exe` exits before ClickOnce has
+   installed anything — see [clickonce.md](clickonce.md#setupexe-returns-before-the-install-happens).
+   If ClickOnce goes quiet without getting there (the security prompt was declined, or it showed
+   an error), the install fails here and nothing is recorded.
+10. Record where the app landed under `HKCU\Software\ClickWrap\{appId}`.
 
 ## install.yaml
 

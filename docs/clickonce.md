@@ -58,6 +58,26 @@ CoTest 2.0.1.0   <- launched by setup.exe after updating
 inside the app must therefore close the app itself. See "Self-update" in
 [installer.md](installer.md).
 
+## setup.exe returns before the install happens
+
+`setup.exe` checks prerequisites, hands the deployment to ClickOnce's service (`dfsvc.exe`) and
+exits. It is gone before the *Publisher cannot be verified* prompt even appears:
+
+| Time | |
+| --- | --- |
+| 19:20:59 | `setup.exe` starts |
+| 19:21:00 | `dfsvc.exe` running (started by `setup.exe`); `setup.exe` already exited |
+| 19:21:01 | security prompt shown by `dfsvc.exe` |
+| 19:21:03 | Add/Remove Programs entry appears, app launches |
+
+Its exit code says nothing about the install either. When ClickOnce could not be started at all
+(`LaunchApplication failed with HRESULT 0x80070005` in `%TEMP%\VSD*.tmp\install.log`), `setup.exe`
+still exited `0`. Declining the security prompt cannot be reflected in it, since that happens
+after the exit.
+
+So the installer treats `setup.exe` finishing as "ClickOnce has started", and waits for the
+Add/Remove Programs entry to show the new version before calling the install done.
+
 ## The uninstall dialog blocks rundll32
 
 The Add/Remove Programs `UninstallString` is
