@@ -40,13 +40,17 @@ public sealed class DeferredDeletion
             return;
         }
 
-        var startInfo = new ProcessStartInfo("cmd.exe")
+        // Full paths throughout: a bare "cmd.exe" is looked for beside this exe first, and a bare
+        // "ping" in cmd's working directory (%TEMP%), where anyone could leave a copy.
+        var startInfo = new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "cmd.exe"))
         {
             UseShellExecute = false,
             CreateNoWindow = true,
             // Anywhere but a folder being deleted, which cmd would otherwise hold open.
             WorkingDirectory = Path.GetTempPath(),
         };
+
+        startInfo.Environment["CLICKWRAP_PING"] = Path.Combine(Environment.SystemDirectory, "PING.EXE");
 
         var deletes = new StringBuilder();
         var stillThere = new StringBuilder();
@@ -74,7 +78,7 @@ public sealed class DeferredDeletion
         // ping is the sleep: timeout.exe refuses to run without a console to read from.
         var command =
             "for /l %i in (1,1,60) do @(" +
-            "ping -n 2 127.0.0.1 >nul & " +
+            "\"%CLICKWRAP_PING%\" -n 2 127.0.0.1 >nul & " +
             deletes +
             stillThere + "exit" +
             ") 2>nul";

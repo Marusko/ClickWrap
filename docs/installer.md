@@ -193,8 +193,8 @@ ClickOnce's own command back.
 | --- | --- |
 | ClickOnce store + Add/Remove Programs entry | via ClickOnce's dialog |
 | `HKCU\Software\ClickWrap\{appId}` | always (and `HKCU\Software\ClickWrap` once empty) |
-| Install folder (`Managed=1`, still has `update.exe` + `*.application`) | always (and a parent `ClickWrap` folder once empty) |
-| Adopted install folder (`Managed=0`, e.g. `Downloads\Race Timer`) | only the `update.exe` this installer put there |
+| Install folder (`Managed=1`, **is** `installFolder`, still has `update.exe` + `*.application`) | always (and a parent `ClickWrap` folder once empty) |
+| Any other recorded folder — adopted (`Managed=0`, e.g. `Downloads\Race Timer`), or not matching `installFolder` | only the `update.exe` this installer put there, and only while the folder still has `update.exe` + `*.application` |
 | `uninstall.data`, `uninstall.registryKeys` | when the checkbox is ticked |
 
 ### The uninstall section
@@ -243,6 +243,35 @@ remainder to a hidden `cmd.exe` that retries once a second for up to a minute. P
 through environment variables rather than the command line, so spaces, `&` and non-ASCII
 characters in a user's profile path need no quoting of their own.
 
+### Security
+
+The uninstaller runs as the logged-in user, never elevated, so it can only ever delete what that
+user could delete by hand. Within that, it trusts two sources differently:
+
+- **The embedded YAML is trusted.** `uninstall.data` and `uninstall.registryKeys` are whatever
+  the exe was built with. The startup checks catch mistakes — a missing subfolder, a key one level
+  too high — but they are **not a security boundary**: whoever builds the exe decides what it
+  deletes, exactly as whoever writes an app decides what it does. A malicious exe would not need
+  ClickWrap to delete files, and ClickWrap is open source, so the checks could simply be removed.
+  The defence against a malicious installer is the user not running one — see below.
+- **The registry is not trusted.** Anything running as the user can edit HKCU, so values read
+  from it are only acted on within limits the exe itself sets:
+  - The install folder is deleted only if it **is** the configured `installFolder`. A
+    registration pointing anywhere else costs that folder its `update.exe` at most.
+  - The ClickOnce command is run only if it starts with `rundll32.exe dfshim.dll,ShArpMaintain`,
+    and only its identity part is used, so a tampered Add/Remove Programs entry cannot make the
+    uninstaller load another DLL. The hook refuses to wrap such an entry, too.
+  - `rundll32`, `cmd` and `ping` are started by full System32 path, never by bare name — a bare
+    name is looked for first in the current or the exe's own folder.
+
+**Sign the installer exe.** It is what users actually have to trust, and an Authenticode
+signature is how they can tell yours from someone else's with the same name. It also keeps
+SmartScreen and antivirus quieter — Kaspersky, for one, puts unsigned exes in a restricted group.
+This is separate from the ClickOnce manifests, which must stay unsigned (see
+[clickonce.md](clickonce.md#manifests-are-unsigned-and-should-stay-that-way)): signing the wrapper
+exe does not change the app's ClickOnce identity. `update.exe` is a copy of the installer, so it
+carries the same signature.
+
 ## Orphan cleanup
 
 ClickOnce uninstall removes only its own Add/Remove Programs entry and store files. The install
@@ -259,8 +288,10 @@ Two safety rules, because this deletes directories:
 
 - Only folders with `Managed=1` are deleted — a folder that was *adopted* (someone's `Downloads`
   folder) is never touched, only its registry key is dropped.
-- Even then, the folder must still contain `update.exe` and a `*.application`, so a hand-edited
-  or corrupt registry entry cannot take out an unrelated directory.
+- Even then, the folder must still contain `update.exe` and a `*.application`, and must not be,
+  or contain, a Windows or user folder, so a hand-edited or corrupt registry entry cannot take out
+  an unrelated directory. (The uninstaller goes further and pins the folder to its own
+  `installFolder`; pruning cleans up after *other* apps, whose configs it does not have.)
 
 An app's own registration is never pruned by its own installer, because that run is about to
 reinstall it anyway.

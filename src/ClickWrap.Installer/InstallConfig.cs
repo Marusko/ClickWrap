@@ -135,7 +135,7 @@ public sealed class UninstallConfig
     /// True for a drive root, any known Windows or user folder, and anything above one of them
     /// (C:\Users, say), so a bad entry cannot take out more than the app's own folder.
     /// </summary>
-    private static bool IsProtectedFolder(string path)
+    internal static bool IsProtectedFolder(string path)
     {
         string full;
         try

@@ -112,16 +112,27 @@ public static class ClickOnceRegistry
         await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>What every ClickOnce uninstall command starts with; nothing else is ever run.</summary>
+    private const string MaintenanceCommandPrefix = "rundll32.exe dfshim.dll,ShArpMaintain ";
+
     private static Process? StartMaintenance(ClickOnceInstallation installation)
     {
         // "rundll32.exe dfshim.dll,ShArpMaintain <identity>", with any hook already taken off.
-        const string prefix = "rundll32.exe ";
+        // The string comes from the registry, which anything running as the user can edit, so
+        // only the identity part is taken from it: a tampered entry cannot name another DLL.
         var command = installation.ClickOnceUninstallString;
-        var arguments = command.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
-            ? command[prefix.Length..]
-            : command;
+        if (!command.StartsWith(MaintenanceCommandPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"The Add/Remove Programs entry for {installation.DisplayName} does not hold a ClickOnce " +
+                $"uninstall command, so it was not run:\n{command}");
+        }
 
-        return Process.Start(new ProcessStartInfo("rundll32.exe", arguments) { UseShellExecute = true });
+        // Full path: a bare "rundll32.exe" is looked for in the current directory first.
+        var rundll32 = Path.Combine(Environment.SystemDirectory, "rundll32.exe");
+        var arguments = "dfshim.dll,ShArpMaintain " + command[MaintenanceCommandPrefix.Length..];
+
+        return Process.Start(new ProcessStartInfo(rundll32, arguments) { UseShellExecute = true });
     }
 
     /// <summary>
@@ -142,6 +153,8 @@ public static class ClickOnceRegistry
     /// </remarks>
     /// <returns>False when the entry could not be written; the app is installed either way.</returns>
     public static bool Hook(ClickOnceInstallation installation, string uninstallerPath) =>
+        // Never carry forward anything but a genuine ClickOnce command.
+        installation.ClickOnceUninstallString.StartsWith(MaintenanceCommandPrefix, StringComparison.OrdinalIgnoreCase) &&
         SetUninstallString(
             installation,
             $"\"{uninstallerPath}\" {InstalledApp.UninstallArgument}{HookMarker}{installation.ClickOnceUninstallString}");

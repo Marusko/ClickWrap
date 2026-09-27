@@ -95,18 +95,22 @@ public sealed class UninstallRunner(InstallConfig config, IInstallProgress progr
     }
 
     /// <summary>
-    /// Same rules as orphan pruning: a folder this installer created goes entirely, provided it
-    /// still looks like one of ours. An adopted folder (someone's Downloads) keeps its contents
-    /// and loses only the update.exe this installer put there.
+    /// A folder this installer created goes entirely — but only the one install.yaml names. The
+    /// registry says where the app is, and anything running as the user can edit that; the config
+    /// embedded in this exe cannot be edited. Managed=1 means exactly "extracted into
+    /// installFolder", so a genuine install always passes. Anything else is treated as adopted
+    /// (someone's Downloads): its contents stay, and only the update.exe put there goes.
     /// </summary>
     private void RemoveInstallFolder(Registration registration)
     {
-        if (registration.InstallFolder is not { Length: > 0 } folder)
+        if (registration.InstallFolder is not { Length: > 0 } folder ||
+            !UpdaterRegistration.LooksLikeInstallFolder(folder) ||
+            UninstallConfig.IsProtectedFolder(folder))
         {
             return;
         }
 
-        if (registration.Managed && UpdaterRegistration.LooksLikeInstallFolder(folder))
+        if (registration.Managed && ClickOnceRegistry.SameFolder(folder, config.ExpandedInstallFolder))
         {
             TryDeleteNowOrLater(folder, isFolder: true);
 

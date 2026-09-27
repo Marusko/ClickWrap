@@ -161,7 +161,9 @@ public static class UpdaterRegistration
     {
         try
         {
-            if (!LooksLikeInstallFolder(folder))
+            // Another app's config is not available here to pin the folder to, as the uninstaller
+            // does. The known-folder check at least keeps a tampered entry off the user's own folders.
+            if (!LooksLikeInstallFolder(folder) || UninstallConfig.IsProtectedFolder(folder))
             {
                 return;
             }
