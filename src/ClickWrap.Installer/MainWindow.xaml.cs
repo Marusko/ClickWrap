@@ -8,6 +8,9 @@ namespace ClickWrap.Installer;
 
 public partial class MainWindow : Window, IInstallProgress
 {
+    private InstallConfig? _config;
+    private UninstallRunner? _uninstaller;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -26,6 +29,14 @@ public partial class MainWindow : Window, IInstallProgress
         {
             // A broken or missing install.yaml is a packaging mistake, not a user error.
             Finish("This installer is misconfigured", ex.Message, Outcome.Error);
+            return;
+        }
+
+        _config = config;
+
+        if (IsUninstallRequested())
+        {
+            ShowUninstallPrompt(config);
             return;
         }
 
@@ -50,6 +61,93 @@ public partial class MainWindow : Window, IInstallProgress
         {
             Finish("Installation failed", ex.Message, Outcome.Error);
         }
+    }
+
+    /// <summary>update.exe --uninstall (or /uninstall) turns the installer into the uninstaller.</summary>
+    private static bool IsUninstallRequested() =>
+        Environment.GetCommandLineArgs().Skip(1).Any(arg =>
+            string.Equals(arg, InstalledApp.UninstallArgument, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(arg, "/uninstall", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Unlike an install, an uninstall asks first: it may delete the user's data.</summary>
+    private void ShowUninstallPrompt(InstallConfig config)
+    {
+        var name = config.EffectiveDisplayName;
+        var options = config.Uninstall;
+
+        Title = $"Uninstall {name}";
+        HeadingText.Text = $"Uninstall {name}?";
+        StatusText.Text = $"This removes {name} from this computer. Windows then asks you to confirm " +
+            "in a ClickOnce dialog.";
+        IconGlyph.Text = "×";
+        Progress.Visibility = Visibility.Collapsed;
+
+        if (options.HasData && options.AskAboutData)
+        {
+            DeleteDataCheckBox.IsChecked = options.DeleteData;
+            DataItemsText.Text = string.Join("\n", options.DisplayItems);
+            DataOptionPanel.Visibility = Visibility.Visible;
+        }
+        else if (options.HasData && options.DeleteData)
+        {
+            // Not asked, but still never silent about deleting someone's files.
+            StatusText.Text += $"\n\nIts data is deleted too:\n{string.Join("\n", options.DisplayItems)}";
+        }
+
+        CloseButton.Content = "Cancel";
+        CloseButton.Style = (Style)FindResource("SecondaryButtonStyle");
+        UninstallButton.Visibility = Visibility.Visible;
+        ButtonRow.Visibility = Visibility.Visible;
+    }
+
+    private async void UninstallButton_Click(object sender, RoutedEventArgs e)
+    {
+        var config = _config!;
+        var name = config.EffectiveDisplayName;
+        var options = config.Uninstall;
+        var deleteData = options.HasData &&
+            (options.AskAboutData ? DeleteDataCheckBox.IsChecked == true : options.DeleteData);
+
+        ButtonRow.Visibility = Visibility.Collapsed;
+        UninstallButton.Visibility = Visibility.Collapsed;
+        CloseButton.ClearValue(StyleProperty);
+        DeleteDataCheckBox.IsEnabled = false;
+        Progress.Visibility = Visibility.Visible;
+        HeadingText.Text = $"Uninstalling {name}";
+
+        _uninstaller = new UninstallRunner(config, this);
+
+        try
+        {
+            var result = await _uninstaller.RunAsync(deleteData);
+
+            var heading = result.AppRemoved ? $"{name} has been removed" : $"{name}'s data has been deleted";
+            if (result.Leftovers.Count == 0)
+            {
+                Finish(heading, "Everything it left behind has been cleaned up.", Outcome.Success);
+            }
+            else
+            {
+                Finish(heading,
+                    $"These could not be deleted. You can delete them by hand:\n\n{string.Join("\n", result.Leftovers)}",
+                    Outcome.Warning);
+            }
+        }
+        catch (UninstallStoppedException ex)
+        {
+            Finish(ex.Heading, ex.Message, Outcome.Warning);
+        }
+        catch (Exception ex)
+        {
+            Finish("Uninstall failed", ex.Message, Outcome.Error);
+        }
+    }
+
+    // Only now can update.exe's own folder go: Windows keeps a running exe locked.
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        _uninstaller?.DeferredDeletion.Start();
     }
 
     private enum Outcome

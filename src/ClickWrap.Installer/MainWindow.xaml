@@ -59,6 +59,13 @@
                     </StackPanel>
                 </Grid>
 
+                <!-- Uninstall only. Indented to line up with the heading, past the icon badge. -->
+                <StackPanel x:Name="DataOptionPanel" Margin="48,16,0,0" Visibility="Collapsed">
+                    <CheckBox x:Name="DeleteDataCheckBox" Content="Also delete its settings, logs and other data" />
+                    <TextBlock x:Name="DataItemsText" Margin="28,6,0,0" TextWrapping="Wrap"
+                               Style="{StaticResource HintTextStyle}" />
+                </StackPanel>
+
                 <ProgressBar x:Name="Progress" Margin="0,18,0,0" IsIndeterminate="True" />
 
                 <Grid Margin="0,20,0,0">
@@ -74,6 +81,8 @@
                     <StackPanel x:Name="ButtonRow" Orientation="Horizontal" HorizontalAlignment="Right"
                                 Visibility="Collapsed">
                         <Button x:Name="CloseButton" MinWidth="86" Content="Close" Click="CloseButton_Click" />
+                        <Button x:Name="UninstallButton" MinWidth="86" Margin="8,0,0,0" Content="Uninstall"
+                                Visibility="Collapsed" Click="UninstallButton_Click" />
                     </StackPanel>
                 </Grid>
             </StackPanel>

@@ -87,13 +87,31 @@ public static class ClickOnceRegistry
     /// </summary>
     public static void LaunchUninstallDialog(ClickOnceInstallation installation)
     {
+        using var _ = StartMaintenance(installation);
+    }
+
+    /// <summary>
+    /// Opens the ClickOnce maintenance dialog and waits for it to close. Closing it does not mean
+    /// the app is gone: the user can cancel, or restore the previous version instead, so the
+    /// caller must check with <see cref="Find"/> afterwards.
+    /// </summary>
+    public static async Task RunUninstallDialogAsync(ClickOnceInstallation installation, CancellationToken cancellationToken)
+    {
+        using var process = StartMaintenance(installation)
+            ?? throw new InvalidOperationException("Could not open the ClickOnce uninstall dialog.");
+
+        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static Process? StartMaintenance(ClickOnceInstallation installation)
+    {
         // The recorded string is already "rundll32.exe dfshim.dll,ShArpMaintain <identity>".
         const string prefix = "rundll32.exe ";
         var arguments = installation.UninstallString.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
             ? installation.UninstallString[prefix.Length..]
             : installation.UninstallString;
 
-        Process.Start(new ProcessStartInfo("rundll32.exe", arguments) { UseShellExecute = true });
+        return Process.Start(new ProcessStartInfo("rundll32.exe", arguments) { UseShellExecute = true });
     }
 
     /// <summary>True when two folders refer to the same place, ignoring case and trailing slashes.</summary>

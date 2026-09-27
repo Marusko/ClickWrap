@@ -33,6 +33,9 @@ public static class InstalledApp
     /// <summary>1 when the installer created the install folder, 0 when it adopted an existing one.</summary>
     public const string ManagedValueName = "Managed";
 
+    /// <summary>Command-line switch that starts <c>update.exe</c> as the app's uninstaller.</summary>
+    public const string UninstallArgument = "--uninstall";
+
     /// <summary>Registry key path for one app.</summary>
     public static string KeyPathFor(string appId) => $@"{RootKeyPath}\{appId}";
 
@@ -77,7 +80,36 @@ public static class InstalledApp
     /// close windows itself before exiting.
     /// </summary>
     /// <returns><c>false</c> when there is no updater to start; the app is unaffected.</returns>
-    public static bool StartUpdater(string appId)
+    public static bool StartUpdater(string appId) => StartUpdaterProcess(appId, arguments: "");
+
+    /// <summary>
+    /// Starts this app's uninstaller — <c>update.exe</c> in uninstall mode — and leaves the app
+    /// running. The uninstaller asks the user to confirm before removing anything.
+    /// </summary>
+    /// <returns><c>false</c> when there is no updater to start; the app is unaffected.</returns>
+    /// <remarks>
+    /// The app must still exit, or files it has open (its logs, its database) cannot be deleted.
+    /// <see cref="UninstallAndExit" /> does both.
+    /// </remarks>
+    public static bool StartUninstaller(string appId) => StartUpdaterProcess(appId, UninstallArgument);
+
+    /// <summary>Starts this app's uninstaller and immediately exits the app.</summary>
+    /// <returns>
+    /// <c>false</c> when there is no updater to start, leaving the app running. On success this
+    /// does not return: the process ends.
+    /// </returns>
+    public static bool UninstallAndExit(string appId, int exitCode = 0)
+    {
+        if (!StartUninstaller(appId))
+        {
+            return false;
+        }
+
+        Environment.Exit(exitCode);
+        return true; // Not reached.
+    }
+
+    private static bool StartUpdaterProcess(string appId, string arguments)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(appId);
 
@@ -89,7 +121,7 @@ public static class InstalledApp
 
         try
         {
-            Process.Start(new ProcessStartInfo(updater) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(updater, arguments) { UseShellExecute = true });
             return true;
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)

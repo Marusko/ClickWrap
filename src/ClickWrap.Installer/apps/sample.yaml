@@ -30,3 +30,19 @@ preInstall: []
 #    url: https://updates.example.com/extras/seed.db
 #    path: '%LOCALAPPDATA%\SampleApp\data\seed.db'
 #    overwrite: false
+
+# Optional. What the uninstaller (update.exe --uninstall) removes besides the app itself.
+# ClickOnce's own uninstall, the install folder and HKCU\Software\ClickWrap\{appId} always go;
+# this lists what the app itself leaves behind. Omit it when the app keeps no data.
+#uninstall:
+#  # Folders or files: settings, logs, databases. Full paths; environment variables expand.
+#  data:
+#    - '%LOCALAPPDATA%\SampleApp'
+#    - '%APPDATA%\SampleApp\logs'
+#  # The app's own keys under HKCU\Software.
+#  registryKeys:
+#    - 'HKCU\Software\SampleApp'
+#  # Whether "Also delete its settings, logs and other data" starts ticked. Default false.
+#  deleteData: false
+#  # Show that checkbox. When false, deleteData decides without asking. Default true.
+#  askAboutData: true

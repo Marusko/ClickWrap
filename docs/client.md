@@ -79,6 +79,8 @@ app's updater.
 | `GetUpdaterPath(appId)` | Path to `update.exe`, or `null` if not recorded or no longer on disk. |
 | `StartUpdater(appId)` | Launches the updater and leaves the app running. `false` if there is none. |
 | `UpdateAndExit(appId, exitCode)` | Launches the updater and exits the app. `false` if there is none. |
+| `StartUninstaller(appId)` | Launches `update.exe --uninstall` and leaves the app running. `false` if there is none. |
+| `UninstallAndExit(appId, exitCode)` | Launches the uninstaller and exits the app. `false` if there is none. |
 | `KeyPathFor(appId)`, `*ValueName` consts | The registry contract, shared with the installer. |
 
 ### How the current version is worked out
@@ -127,6 +129,24 @@ if (InstalledApp.StartUpdater(AppId))
     Application.Current.Shutdown();   // must still close
 }
 ```
+
+### Uninstalling
+
+For an *Uninstall* item in the app's own menu — the uninstaller otherwise lives in a folder
+nobody browses:
+
+```csharp
+if (!InstalledApp.UninstallAndExit(AppId))
+{
+    ShowMessage("Could not find the uninstaller. Remove the app from Settings > Apps.");
+}
+```
+
+It starts `update.exe --uninstall` and exits, with the same `false`-instead-of-exiting rule as
+`UpdateAndExit`. The uninstaller asks the user to confirm, so the app does not need its own
+"are you sure". It must still exit: the uninstaller cannot delete files the app holds open.
+`StartUninstaller` is the variant that leaves closing to the app. What gets removed is set in the
+app's YAML — see [installer.md](installer.md#uninstall).
 
 ## Why this library is Windows-only
 

@@ -58,6 +58,26 @@ CoTest 2.0.1.0   <- launched by setup.exe after updating
 inside the app must therefore close the app itself. See "Self-update" in
 [installer.md](installer.md).
 
+## The uninstall dialog blocks rundll32
+
+The Add/Remove Programs `UninstallString` is
+`rundll32.exe dfshim.dll,ShArpMaintain <identity>`. Run that way, the *Maintenance* dialog is
+owned by `dfsvc.exe`, but `rundll32` stays running until the dialog closes:
+
+| Time | |
+| --- | --- |
+| 19:21:24 | `rundll32` started by the uninstaller |
+| 19:21:27 | *CW Test App Maintenance* dialog open (in `dfsvc.exe`), `rundll32` still running |
+| 19:21:31 | OK clicked: dialog closed, `rundll32` exited, Add/Remove Programs entry gone |
+
+So waiting for `rundll32` to exit is waiting for the user's decision. It is not proof of removal:
+the same dialog can be cancelled or used to restore the previous version, which is why the
+uninstaller checks the entry afterwards.
+
+There is no supported way to skip the dialog. Tools that do, such as Wunder.ClickOnceUninstaller,
+delete ClickOnce's store directly and identify an app's entries by public key token — which,
+with unsigned manifests, is `0000000000000000` for every app and would take them all out.
+
 ## ClickOnce uninstall only removes what ClickOnce owns
 
 After uninstalling through Add/Remove Programs:
@@ -69,8 +89,9 @@ After uninstalling through Add/Remove Programs:
 | The install folder (`setup.exe`, `update.exe`, `Application Files\`) | **left behind** |
 | `HKCU\Software\ClickWrap\{appId}` | **left behind** |
 
-There is no hook into ClickOnce uninstall, so the installer cleans up opportunistically
-instead — see "Orphan cleanup" in [installer.md](installer.md).
+There is no hook into ClickOnce uninstall, so ClickWrap's own uninstaller runs ClickOnce's and
+then cleans up itself, and every installer run also cleans up opportunistically after apps removed
+through Settings > Apps — see "Uninstall" and "Orphan cleanup" in [installer.md](installer.md).
 
 ## Manifests are unsigned, and should stay that way
 

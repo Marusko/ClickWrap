@@ -4,8 +4,8 @@ A WPF exe that wraps ClickOnce. One build per app, with that app's YAML embedded
 app means shipping exactly one file.
 
 The same exe installs and updates — running it again fetches the newest version and re-runs
-`setup.exe`. Uninstall stays with ClickOnce in Add/Remove Programs; there is nothing to build
-for it.
+`setup.exe` — and, with `--uninstall`, removes the app along with everything ClickOnce's own
+uninstall leaves behind. See [Uninstall](#uninstall).
 
 ## What happens on run
 
@@ -45,6 +45,7 @@ preInstall:
 | `installFolder` | yes | Fixed folder the publish output is extracted into. Environment variables expand. |
 | `onExistingInstall` | no | `adopt` (default) or `reinstall`. |
 | `preInstall` | no | Steps run before `setup.exe`. |
+| `uninstall` | no | The app's own data, for the uninstaller to offer to delete. See [Uninstall](#uninstall). |
 
 Pre-install step types are `createFolder` (needs `path`) and `downloadFile` (needs `url` and
 `path`, plus optional `overwrite`, default false). An unknown `type`, or a step missing a
@@ -118,11 +119,91 @@ than an assembly version that can drift from the published `ApplicationVersion`.
 exe. The wipe deliberately skips the running executable; without that, an app-initiated update
 would fail trying to delete its own updater mid-run.
 
+## Uninstall
+
+`update.exe --uninstall` (or `/uninstall`) runs the same exe as the uninstaller. It is not a
+separate file: it already sits in the install folder, costs no extra 62 MB, and is always the
+same build as the installer that put the app there. The original `RaceTimerSetup.exe` accepts the
+switch too.
+
+Apps start it the same way they start an update — `InstalledApp.UninstallAndExit(appId)`, see
+[client.md](client.md#uninstalling). The app has to exit: files it holds open (logs, a database)
+cannot be deleted while it runs.
+
+1. Ask first. Unlike an install, this can delete the user's data, so the window waits for
+   **Uninstall** and offers the data checkbox.
+2. Open ClickOnce's own uninstall dialog, where the user picks *Remove the application from this
+   computer*. There is no silent ClickOnce uninstall, so this click cannot be skipped.
+3. Check the Add/Remove Programs entry has actually gone. The dialog closing proves nothing: the
+   user may have cancelled, or restored the previous version instead. If the entry is still
+   there, **nothing** is removed and the window says so.
+4. Delete the install folder and `HKCU\Software\ClickWrap\{appId}` — the same rules as
+   [orphan cleanup](#orphan-cleanup), just straight away.
+5. If ticked, delete the app's data.
+6. Remove whatever is still locked once the window closes (see below).
+
+If ClickOnce has already removed the app — someone used Settings > Apps — step 2 is skipped and
+the rest still runs, so the uninstaller also doubles as "clean up after it".
+
+### What it removes
+
+| | |
+| --- | --- |
+| ClickOnce store + Add/Remove Programs entry | via ClickOnce's dialog |
+| `HKCU\Software\ClickWrap\{appId}` | always (and `HKCU\Software\ClickWrap` once empty) |
+| Install folder (`Managed=1`, still has `update.exe` + `*.application`) | always (and a parent `ClickWrap` folder once empty) |
+| Adopted install folder (`Managed=0`, e.g. `Downloads\Race Timer`) | only the `update.exe` this installer put there |
+| `uninstall.data`, `uninstall.registryKeys` | when the checkbox is ticked |
+
+### The uninstall section
+
+```yaml
+uninstall:
+  data:                       # folders or files; full paths, environment variables expand
+    - '%LOCALAPPDATA%\TimeMaker'
+    - '%APPDATA%\Trakster\logs'
+  registryKeys:               # the app's own keys under HKCU\Software
+    - 'HKCU\Software\TimeMaker'
+  deleteData: false           # checkbox starts ticked?
+  askAboutData: true          # show the checkbox at all?
+```
+
+| Key | Default | Notes |
+| --- | --- | --- |
+| `data` | none | Folders are deleted with everything in them; files on their own. No wildcards. |
+| `registryKeys` | none | `HKCU\Software\...` or `HKEY_CURRENT_USER\Software\...`, deleted with all subkeys. |
+| `deleteData` | `false` | Starting state of *Also delete its settings, logs and other data*. |
+| `askAboutData` | `true` | `false` hides the checkbox and applies `deleteData` without asking. The window still lists what it is deleting. |
+
+Omit the section when the app keeps no data — the checkbox then does not appear. Nothing here
+affects installs or updates.
+
+Because the uninstaller deletes whole folders, entries are checked at startup and a bad one fails
+the installer with a message, as a bad `preInstall` step does:
+
+- `data` must be a full path and must not be a drive root, a Windows or user folder
+  (`%LOCALAPPDATA%`, `Documents`, `%TEMP%`, …), or anything above one (`C:\Users`,
+  `%APPDATA%\Microsoft`).
+- `registryKeys` must be at least `HKCU\Software\{Vendor}`, and never `Microsoft`, `Classes`,
+  `Policies`, `Wow6432Node` or `ClickWrap`.
+
+Items that cannot be deleted — typically a log file the app still has open — do not stop the
+rest. The window lists them afterwards so they can be removed by hand.
+
+### Deleting its own folder
+
+The uninstaller is usually `update.exe` inside the very folder it removes, and Windows locks a
+running exe. So it deletes everything it can immediately, and when its window closes hands the
+remainder to a hidden `cmd.exe` that retries once a second for up to a minute. Paths are passed
+through environment variables rather than the command line, so spaces, `&` and non-ASCII
+characters in a user's profile path need no quoting of their own.
+
 ## Orphan cleanup
 
 ClickOnce uninstall removes only its own Add/Remove Programs entry and store files. The install
 folder — roughly 62 MB of it being `update.exe` — and the registry key both survive, and there is
-no hook into ClickOnce uninstall to prevent that.
+no hook into ClickOnce uninstall to prevent that. The [uninstaller](#uninstall) avoids this, but
+an app removed through Settings > Apps bypasses it.
 
 So every installer run prunes **any** ClickWrap app, not just its own: for each registration
 whose ClickOnce entry no longer exists, the folder and key are removed. Orphans are collected

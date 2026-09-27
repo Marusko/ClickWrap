@@ -193,7 +193,8 @@ cannot reach them.
 | Installer says the server has no versions | App id mismatch between the YAML and `/admin`. |
 | Download URL points at the wrong host | `CLICKWRAP_PUBLIC_BASE_URL` is not set. |
 | A user has two copies of the app running | The app launched `update.exe` without shutting itself down. |
-| Uninstalled app left a 62 MB folder behind | Expected; collected on the next installer run. See [installer.md](installer.md#orphan-cleanup). |
+| Uninstalled app left a 62 MB folder behind | It was removed through Settings > Apps rather than the uninstaller. Collected on the next installer run, or run `update.exe --uninstall` from that folder. See [installer.md](installer.md#orphan-cleanup). |
+| Uninstaller says the app is still installed | The ClickOnce dialog was cancelled, or *Restore* was picked. Nothing was removed; run it again. |
 | "Publisher cannot be verified" on first install | Expected — manifests are unsigned. Do not fix this by signing them. |
 
 ## Testing changes to the installer
@@ -205,4 +206,7 @@ cover install, update, adopt, self-update and uninstall. Verify against:
 - Add/Remove Programs: `DisplayVersion` bumped, still exactly **one** entry
 - `HKCU\Software\ClickWrap\{appId}`: `Version` matches
 - the install folder: `update.exe` present, only the new `Application Files\` version
-- after uninstall: entry gone, and the folder collected on the next installer run
+- after `update.exe --uninstall`: entry, folder and registration gone once the window closes,
+  and the data only when the checkbox was ticked
+- after cancelling the ClickOnce dialog: nothing removed
+- after uninstalling through Settings > Apps: the folder collected on the next installer run

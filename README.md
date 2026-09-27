@@ -4,8 +4,9 @@ A small system wrapped around ClickOnce: a server that hosts each app's zipped C
 output, a library apps use to check for updates, and a wrapper installer that downloads the zip
 and runs `setup.exe`.
 
-ClickOnce stays the actual install and update mechanism. Nothing here replaces it — and uninstall
-remains ClickOnce's job, in Add/Remove Programs.
+ClickOnce stays the actual install and update mechanism. Nothing here replaces it — the
+uninstaller (`update.exe --uninstall`) runs ClickOnce's own uninstall, then removes what that
+leaves behind: the install folder, the registry record and, if the user ticks it, the app's data.
 
 ```
 src/ClickWrap.Server/         Blazor Server admin page + two API endpoints, files on disk

@@ -49,6 +49,45 @@ public static class UpdaterRegistration
         }
     }
 
+    /// <summary>What <see cref="Record"/> wrote for one app, or <c>null</c> when nothing is recorded.</summary>
+    public static Registration? Read(string appId)
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey($@"{RootKeyPath}\{appId}");
+            if (key is null)
+            {
+                return null;
+            }
+
+            return new Registration(
+                key.GetValue(InstalledApp.InstallFolderValueName) as string,
+                key.GetValue(InstalledApp.DeploymentNameValueName) as string,
+                key.GetValue(InstalledApp.ManagedValueName) is int flag && flag == 1);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Deletes one app's record, and the root key too once no app is left in it.</summary>
+    public static void Remove(string appId)
+    {
+        using var root = Registry.CurrentUser.OpenSubKey(RootKeyPath, writable: true);
+        if (root is null)
+        {
+            return;
+        }
+
+        root.DeleteSubKeyTree(appId, throwOnMissingSubKey: false);
+
+        if (root.SubKeyCount == 0 && root.ValueCount == 0)
+        {
+            Registry.CurrentUser.DeleteSubKey(RootKeyPath, throwOnMissingSubKey: false);
+        }
+    }
+
     /// <summary>
     /// Drops records for apps ClickOnce has since uninstalled, and deletes the install folders
     /// left behind with them.
@@ -122,9 +161,7 @@ public static class UpdaterRegistration
     {
         try
         {
-            if (!Directory.Exists(folder) ||
-                !File.Exists(Path.Combine(folder, InstallRunner.UpdaterFileName)) ||
-                !Directory.EnumerateFiles(folder, "*.application").Any())
+            if (!LooksLikeInstallFolder(folder))
             {
                 return;
             }
@@ -136,4 +173,23 @@ public static class UpdaterRegistration
             // Something in there is in use; it will be retried on the next installer run.
         }
     }
+
+    /// <summary>True when a folder still holds an update.exe and a deployment manifest.</summary>
+    public static bool LooksLikeInstallFolder(string folder)
+    {
+        try
+        {
+            return Directory.Exists(folder) &&
+                File.Exists(Path.Combine(folder, InstallRunner.UpdaterFileName)) &&
+                Directory.EnumerateFiles(folder, "*.application").Any();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return false;
+        }
+    }
 }
+
+/// <summary>What the installer recorded under HKCU\Software\ClickWrap\{appId}.</summary>
+/// <param name="Managed">True when the installer created the folder rather than adopting it.</param>
+public sealed record Registration(string? InstallFolder, string? DeploymentName, bool Managed);
