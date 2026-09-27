@@ -49,6 +49,7 @@ In the app you want to distribute, `Properties/PublishProfiles/ClickOnceProfile.
   <UpdateEnabled>false</UpdateEnabled>
   <BootstrapperEnabled>true</BootstrapperEnabled>
   <SignManifests>false</SignManifests>
+  <GenerateManifests>true</GenerateManifests>
   <ProductName>Race Timer</ProductName>
   <ApplicationVersion>1.0.0.0</ApplicationVersion>
 </PropertyGroup>
@@ -188,6 +189,7 @@ cannot reach them.
 | --- | --- |
 | *You cannot start application X from this location because it is already installed from a different location* | `installFolder` differs from where the app was installed. Should not happen with `adopt`; check the app's `UrlUpdateInfo` in Add/Remove Programs. |
 | `MSB4803: GenerateBootstrapper is not supported` | You used `dotnet publish` for a ClickOnce build. Use MSBuild.exe. |
+| `MSB3094: "DestinationFiles" refers to 2 item(s), and "SourceFiles" refers to 1 item(s)` on ClickOnce publish | The publish profile lacks `<GenerateManifests>true</GenerateManifests>`. |
 | `MSB3030: Could not copy the file "sample"` | You passed `-p:AppConfig=`. Use `-p:ClickWrapApp=`. |
 | `Ambiguous project name` on restore | You passed `-p:AssemblyName=`. Use `-p:InstallerAssemblyName=`. |
 | Installer says the server has no versions | App id mismatch between the YAML and `/admin`. |
